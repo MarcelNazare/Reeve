@@ -1,27 +1,17 @@
-# Rust build artifacts
 /target/
 **/*.rs.bk
 *.pdb
 
-# Cargo lockfile is committed for binaries (this project is a binary).
-# If you add a library crate, uncomment the next line.
-# Cargo.lock
-
-# IDE / editor
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-.project
-.settings/
 
-# OS junk
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Reeve runtime data (in case anyone runs the launcher from the repo root)
 /data/
 *.db
 *.db-journal
@@ -29,16 +19,13 @@ desktop.ini
 *.db-shm
 /webview/
 
-# Logs
 *.log
 logs/
 
-# Local environment overrides
 .env
 .env.local
 .env.*.local
 
-# Build outputs
 /release/
 /dist/
 /installers/
@@ -46,12 +33,7 @@ logs/
 *.exe
 *.dll
 
-# Coverage
 *.profraw
 *.profdata
 /coverage/
 lcov.info
-
-# Cargo tools output
-/deny.toml.bak
-cargo-deny-report.txt

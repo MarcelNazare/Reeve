@@ -5,7 +5,7 @@ use crate::governor::win::{enumerate_and_attach_renderers, Governor};
 use crate::instance::{AppInstance, Lifecycle};
 use anyhow::Result;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::rc::Rc;
 use tao::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
@@ -77,12 +77,9 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
         .with_inner_size(tao::dpi::LogicalSize::new(720.0, 520.0))
         .build(&event_loop)?;
 
-    // One WebContext for the entire process. Every WebView — launcher and
-    // every app — must share this context to share the browser process.
     let mut web_context = WebContext::new(Some(env.data_dir.clone()));
 
-    let launcher_webview = WebViewBuilder::new()
-        .with_web_context(&mut web_context)
+    let launcher_webview = WebViewBuilder::new_with_web_context(&mut web_context)
         .with_html(LAUNCHER_HTML)
         .with_ipc_handler({
             let proxy = proxy.clone();
@@ -100,12 +97,11 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
 
     launcher_webview.evaluate_script(&format!("window.__reeve_render({apps_json})"))?;
 
-    // Keep launcher resources alive for the entire event loop.
     let _launcher_keepalive = (launcher_window, launcher_webview);
 
     let mut app_windows: HashMap<WindowId, AppWindow> = HashMap::new();
-    let governor = Arc::new(governor);
-    let catalog = Arc::new(catalog);
+    let governor = Rc::new(governor);
+    let catalog = Rc::new(catalog);
 
     let mut last_scan = std::time::Instant::now();
     let scan_interval = std::time::Duration::from_secs(3);
@@ -117,10 +113,7 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
 
         match event {
             Event::UserEvent(UserEvent::Launch(app_id)) => {
-                if app_windows
-                    .values()
-                    .any(|aw| aw.instance.app.id == app_id)
-                {
+                if app_windows.values().any(|aw| aw.instance.app.id == app_id) {
                     tracing::info!(%app_id, "app already open");
                     return;
                 }
@@ -181,7 +174,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                     }
                     tracing::info!(app_id = %aw.instance.app.id, "app closed");
                 } else {
-                    // Launcher close => exit.
                     *control_flow = ControlFlow::Exit;
                 }
             }
@@ -193,7 +185,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             _ => {}
         }
 
-        // Periodic renderer attachment. New renderers spawn as pages grow.
         if last_scan.elapsed() >= scan_interval {
             last_scan = std::time::Instant::now();
             for (_, aw) in &app_windows {
@@ -224,7 +215,7 @@ fn spawn_app_window(
     web_context: &mut WebContext,
     app: AppRecord,
     proxy: EventLoopProxy<UserEvent>,
-    catalog: Arc<Catalog>,
+    catalog: Rc<Catalog>,
 ) -> Result<(Window, WebView, AppInstance, Option<String>)> {
     let window = WindowBuilder::new()
         .with_title(app.name.clone())
@@ -232,20 +223,16 @@ fn spawn_app_window(
         .build(event_loop)?;
     let window_id = window.id();
 
-    // Preload the permission map so the bridge is `Send + 'static`.
     let mut permissions: HashMap<String, Vec<String>> = HashMap::new();
     for (cap, scope) in catalog.get_all_permissions(&app.id).unwrap_or_default() {
         permissions.entry(cap).or_default().push(scope);
     }
     let bridge = Bridge::new(app.id.clone(), permissions);
 
-    // Expected origin for IPC filtering. Blocks third-party pages from
-    // invoking the bridge during OAuth redirects or malicious navigations.
     let expected_host = url::Url::parse(&app.start_url)
         .ok()
         .and_then(|u| u.host_str().map(|s| s.to_string()));
 
-    // Register the session before spawn so its id is available on close.
     let session_id = catalog.record_session_start(&app.id, 0).unwrap_or(-1);
     let instance = AppInstance::spawn(app.clone(), session_id)?;
 
@@ -253,11 +240,9 @@ fn spawn_app_window(
     let handler_proxy = proxy.clone();
     let start_url = app.start_url.clone();
 
-    let webview = WebViewBuilder::new()
-        .with_web_context(web_context)
+    let webview = WebViewBuilder::new_with_web_context(web_context)
         .with_url(&start_url)
         .with_ipc_handler(move |req| {
-            // Origin gate — reject IPC from unexpected hosts.
             let page_host = req.uri().host();
             let origin_ok = match (&handler_host, page_host) {
                 (Some(expected), Some(host)) => {

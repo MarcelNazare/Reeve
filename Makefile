@@ -1,6 +1,3 @@
-# Reeve — simple build helpers
-# Windows: run from Git Bash, MSYS2, or `make` from chocolatey/scoop.
-
 CARGO ?= cargo
 BIN   := reeve
 

@@ -24,13 +24,11 @@ fn main() -> Result<()> {
     let catalog = catalog::Catalog::open(&data.join("catalog.db"))?;
     let env = environment::SharedEnvironment::new(data.join("webview"))?;
 
-    // Seed the catalog so there is something to launch on first run.
     if catalog.list_apps()?.is_empty() {
         catalog.add_app("linear", "Linear", "https://linear.app")?;
         catalog.add_app("notion", "Notion", "https://notion.so")?;
         catalog.add_app("figma", "Figma", "https://figma.com")?;
 
-        // Seed capabilities so the bridge can be exercised end-to-end.
         catalog.grant_permission("linear", "notify", "")?;
         catalog.grant_permission("notion", "fs.pick", "")?;
         catalog.grant_permission("notion", "fs.read", r"C:\Users\Public")?;
@@ -38,7 +36,6 @@ fn main() -> Result<()> {
         catalog.grant_permission("figma", "notify", "")?;
     }
 
-    // 1 GiB per renderer, 4 GiB total across all renderers.
     let governor = governor::win::Governor::new(1_073_741_824, 4_294_967_296)?;
 
     tracing::info!(data = %data.display(), "Reeve starting");

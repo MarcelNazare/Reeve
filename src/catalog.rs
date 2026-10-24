@@ -1,9 +1,10 @@
 use anyhow::Result;
 use rusqlite::{params, Connection};
+use serde::Serialize;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AppRecord {
     pub id: String,
     pub name: String,

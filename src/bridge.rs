@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-/// A single IPC request from the webview.
 #[derive(Debug, Deserialize)]
 pub struct BridgeRequest {
     pub capability: String,
@@ -13,7 +12,6 @@ pub struct BridgeRequest {
     pub request_id: Option<String>,
 }
 
-/// A single IPC response sent back to the webview.
 #[derive(Debug, Serialize)]
 pub struct BridgeResponse {
     pub ok: bool,
@@ -25,9 +23,6 @@ pub struct BridgeResponse {
     pub request_id: Option<String>,
 }
 
-/// The bridge is `Send + Sync + 'static` because it holds only owned data.
-/// Permissions are preloaded at window-creation time; changing grants while
-/// an app is running requires restarting that app's window.
 pub struct Bridge {
     app_id: String,
     permissions: HashMap<String, Vec<String>>,
@@ -38,7 +33,6 @@ impl Bridge {
         Self { app_id, permissions }
     }
 
-    /// Parse, authorize, dispatch, serialize.
     pub fn handle(&self, body: &str) -> String {
         let req: BridgeRequest = match serde_json::from_str(body) {
             Ok(r) => r,
@@ -134,8 +128,6 @@ impl Bridge {
         Ok(serde_json::json!({ "shown": true }))
     }
 
-    /// Gate: the app must have the capability, and if `path` is provided,
-    /// it must fall within at least one granted, canonicalized scope.
     fn require_capability(&self, capability: &str, path: Option<&str>) -> Result<()> {
         let scopes = self
             .permissions
@@ -148,8 +140,6 @@ impl Bridge {
             })?;
 
         if let Some(p) = path {
-            // Canonicalize both sides so `..` traversal and symlink tricks
-            // cannot escape the granted scope.
             let requested = std::fs::canonicalize(p).unwrap_or_else(|_| PathBuf::from(p));
 
             let allowed = scopes.iter().any(|scope| {

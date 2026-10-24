@@ -24,20 +24,8 @@ pub mod win {
             self.job.assign_process(pid)?;
             Ok(())
         }
-
-        #[allow(dead_code)]
-        pub fn list_pids(&self) -> Result<Vec<usize>> {
-            Ok(self.job.query_process_id_list()?)
-        }
     }
 
-    /// Enumerate every Renderer process in the shared WebView2 environment
-    /// and attach each to the Job Object. Returns the newly attached PIDs.
-    ///
-    /// Uses the official `ICoreWebView2Environment13::GetProcessInfos` path.
-    /// WebView2's process tree is not a simple parent/child hierarchy, so
-    /// walking the tree with Toolhelp32 is unreliable. The environment owns
-    /// the authoritative list.
     pub fn enumerate_and_attach_renderers(
         governor: &Governor,
         webview: &WebView,
@@ -46,7 +34,6 @@ pub mod win {
         let core = unsafe { controller.CoreWebView2()? };
         let env = unsafe { core.Environment()? };
 
-        // `GetProcessInfos` requires a reasonably recent WebView2 Runtime.
         let env13: ICoreWebView2Environment13 = env.cast()?;
 
         let collection = unsafe { env13.GetProcessInfos()? };
@@ -83,9 +70,6 @@ pub mod win {
         }
         pub fn attach(&self, _pid: u32) -> Result<()> {
             Ok(())
-        }
-        pub fn list_pids(&self) -> Result<Vec<usize>> {
-            Ok(vec![])
         }
     }
 
