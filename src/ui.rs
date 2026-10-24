@@ -70,9 +70,7 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
     display: flex; justify-content: space-between; align-items: flex-start;
     margin-bottom: 32px;
   }
-  .brand { display: flex; align-items: center; gap: 16px; }
-  .brand-icon { width: 48px; height: 48px; flex-shrink: 0; }
-  .brand-icon svg { width: 100%; height: 100%; }
+  .brand { display: flex; align-items: center; }
   .brand-text h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; color: var(--text); }
   .brand-text p { font-size: 14px; color: var(--text-muted); }
 
@@ -144,6 +142,7 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
 </head>
 <body>
   <div class="header">
+    <div class="brand">
       <div class="brand-text">
         <h1>Reeve</h1>
         <p>One engine. Many apps. Governed.</p>
