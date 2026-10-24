@@ -3,7 +3,7 @@ use crate::catalog::{AppRecord, Catalog};
 use crate::environment::SharedEnvironment;
 use crate::governor::win::{enumerate_and_attach_renderers, Governor};
 use crate::instance::{AppInstance, Lifecycle};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::rc::Rc;
 use tao::{
@@ -16,6 +16,7 @@ use wry::{NewWindowResponse, WebContext, WebView, WebViewBuilder};
 #[derive(Debug, Clone)]
 pub enum UserEvent {
     Launch(String),
+    AddApp { url: String },
     BridgeResponse { window_id: WindowId, script: String },
 }
 
@@ -34,6 +35,23 @@ const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
   body { font-family: 'Segoe UI', system-ui, sans-serif; background:#0f0f11; color:#e8e8ec; padding:24px; }
   h1 { font-size:18px; font-weight:600; margin-bottom:4px; color:#fff; }
   .sub { font-size:12px; color:#6b6b76; margin-bottom:20px; }
+  form { display:flex; gap:8px; margin-bottom:12px; }
+  input[type=url] {
+    flex:1; background:#1a1a1f; border:1px solid #2a2a32; border-radius:8px;
+    padding:10px 12px; color:#e8e8ec; font-size:13px; outline:none;
+    font-family: inherit;
+  }
+  input[type=url]:focus { border-color:#4a4a5a; }
+  input[type=url]::placeholder { color:#5a5a66; }
+  button {
+    background:#2a2a32; border:1px solid #3a3a44; color:#e8e8ec;
+    padding:10px 16px; border-radius:8px; font-size:13px;
+    cursor:pointer; font-family: inherit;
+  }
+  button:hover { background:#3a3a44; }
+  .notice { min-height:20px; font-size:12px; margin-bottom:12px; transition:opacity .2s; }
+  .notice.ok { color:#5dc26a; }
+  .notice.error { color:#e05050; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
   .app { background:#1a1a1f; border:1px solid #2a2a32; border-radius:10px; padding:16px; cursor:pointer; transition:all .15s; }
   .app:hover { border-color:#4a4a5a; background:#202028; }
@@ -45,10 +63,34 @@ const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
 <body>
   <h1>Reeve</h1>
   <p class="sub">One engine. Many apps. Governed.</p>
+  <form id="add-form" onsubmit="return addApp(event)">
+    <input id="add-input" type="url" placeholder="Paste a PWA link (e.g. https://linear.app)" autocomplete="off" spellcheck="false" />
+    <button type="submit">Add</button>
+  </form>
+  <div id="notice" class="notice"></div>
   <div class="grid" id="grid"></div>
   <p class="empty" id="empty" style="display:none">No apps installed yet.</p>
 <script>
   function launch(id) { window.ipc.postMessage(JSON.stringify({cmd:'launch', app_id:id})); }
+  function addApp(e) {
+    e.preventDefault();
+    var input = document.getElementById('add-input');
+    var url = input.value.trim();
+    if (!url) return false;
+    window.ipc.postMessage(JSON.stringify({ cmd: 'add_app', url: url }));
+    input.value = '';
+    return false;
+  }
+  function notice(msg, isError) {
+    var el = document.getElementById('notice');
+    el.textContent = msg;
+    el.className = 'notice ' + (isError ? 'error' : 'ok');
+    clearTimeout(window.__noticeTimer);
+    window.__noticeTimer = setTimeout(function() {
+      el.textContent = '';
+      el.className = 'notice';
+    }, 4000);
+  }
   function render(apps) {
     var grid = document.getElementById('grid');
     var empty = document.getElementById('empty');
@@ -60,6 +102,7 @@ const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
     }).join('');
   }
   window.__reeve_render = render;
+  window.__reeve_notice = notice;
 </script>
 </body>
 </html>"#;
@@ -83,12 +126,23 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
         .with_ipc_handler({
             let proxy = proxy.clone();
             move |req| {
-                if let Ok(msg) = serde_json::from_str::<serde_json::Value>(req.body()) {
-                    if msg["cmd"] == "launch" {
+                let Ok(msg) = serde_json::from_str::<serde_json::Value>(req.body()) else {
+                    return;
+                };
+                match msg["cmd"].as_str() {
+                    Some("launch") => {
                         if let Some(app_id) = msg["app_id"].as_str() {
                             let _ = proxy.send_event(UserEvent::Launch(app_id.to_string()));
                         }
                     }
+                    Some("add_app") => {
+                        if let Some(url) = msg["url"].as_str() {
+                            let _ = proxy.send_event(UserEvent::AddApp {
+                                url: url.to_string(),
+                            });
+                        }
+                    }
+                    _ => {}
                 }
             }
         })
@@ -96,7 +150,8 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
 
     launcher_webview.evaluate_script(&format!("window.__reeve_render({apps_json})"))?;
 
-    let _launcher_keepalive = (launcher_window, launcher_webview);
+    let _launcher_window = launcher_window;
+    let launcher_webview_opt = Some(launcher_webview);
 
     let mut app_windows: HashMap<WindowId, AppWindow> = HashMap::new();
     let governor = Rc::new(governor);
@@ -147,6 +202,52 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                         );
                     }
                     Err(e) => tracing::error!(?e, %app_id, "failed to spawn app"),
+                }
+            }
+
+            Event::UserEvent(UserEvent::AddApp { url }) => {
+                tracing::info!(%url, "add_app requested");
+
+                match derive_app_from_url(&url) {
+                    Ok((id, name, canonical)) => {
+                        let already = catalog
+                            .list_apps()
+                            .unwrap_or_default()
+                            .iter()
+                            .any(|a| a.id == id || a.start_url == canonical);
+
+                        if already {
+                            tracing::info!(%id, %canonical, "app already installed");
+                            push_notice(&launcher_webview_opt, "Already installed", true);
+                        } else if let Err(e) = catalog.add_app(&id, &name, &canonical) {
+                            tracing::error!(?e, %id, "failed to add app");
+                            push_notice(&launcher_webview_opt, "Failed to add app", true);
+                        } else {
+                            tracing::info!(%id, %name, %canonical, "app added");
+                            if let Some(apps) = catalog.list_apps().ok() {
+                                if let Ok(json) = serde_json::to_string(&apps) {
+                                    if let Some(wv) = launcher_webview_opt.as_ref() {
+                                        let _ = wv.evaluate_script(&format!(
+                                            "window.__reeve_render({json})"
+                                        ));
+                                    }
+                                }
+                            }
+                            push_notice(
+                                &launcher_webview_opt,
+                                &format!("Added {name}"),
+                                false,
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(?e, %url, "invalid app URL");
+                        push_notice(
+                            &launcher_webview_opt,
+                            &format!("Invalid URL: {e}"),
+                            true,
+                        );
+                    }
                 }
             }
 
@@ -212,6 +313,116 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
     });
 }
 
+// --- URL → app record derivation ---
+
+/// Parses a user-pasted URL into (id, display_name, canonical_start_url).
+///
+/// Accepts bare hosts ("linear.app") and full URLs with schemes.
+/// Strips "www." prefixes, preserves port and path.
+fn derive_app_from_url(url_str: &str) -> Result<(String, String, String)> {
+    let trimmed = url_str.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!("empty URL"));
+    }
+
+    let with_scheme = if trimmed.contains("://") {
+        trimmed.to_string()
+    } else {
+        format!("https://{trimmed}")
+    };
+
+    let url = url::Url::parse(&with_scheme).map_err(|e| anyhow!("invalid URL: {e}"))?;
+
+    if url.scheme() != "https" && url.scheme() != "http" {
+        return Err(anyhow!("only http(s) URLs are supported"));
+    }
+
+    let host_raw = url.host_str().ok_or_else(|| anyhow!("URL has no host"))?;
+    let host = host_raw
+        .trim_start_matches("www.")
+        .trim_end_matches('.')
+        .to_lowercase();
+
+    if host.is_empty() {
+        return Err(anyhow!("URL has no host"));
+    }
+
+    let id = host.replace('.', "-");
+    let name = derive_display_name(&host);
+
+    let mut canonical = format!("{}://{}", url.scheme(), host);
+    if let Some(port) = url.port() {
+        canonical.push_str(&format!(":{port}"));
+    }
+    let path = url.path();
+    if !path.is_empty() && path != "/" {
+        canonical.push_str(path);
+    }
+
+    Ok((id, name, canonical))
+}
+
+fn derive_display_name(host: &str) -> String {
+    const SPECIAL: &[(&str, &str)] = &[
+        ("whatsapp", "WhatsApp"),
+        ("youtube", "YouTube"),
+        ("github", "GitHub"),
+        ("gitlab", "GitLab"),
+        ("vscode", "VS Code"),
+        ("gmail", "Gmail"),
+    ];
+
+    let base = extract_brand_label(host);
+
+    for (key, display) in SPECIAL {
+        if base.eq_ignore_ascii_case(key) {
+            return display.to_string();
+        }
+    }
+
+    capitalize(&base)
+}
+
+fn extract_brand_label(host: &str) -> String {
+    let parts: Vec<&str> = host.split('.').filter(|s| !s.is_empty()).collect();
+
+    if parts.is_empty() {
+        return host.to_string();
+    }
+    if parts.len() == 1 {
+        return parts[0].to_string();
+    }
+
+    const GENERIC_SL: &[&str] = &["co", "com", "org", "net", "gov", "edu", "ac", "ne", "or"];
+    let mut idx = parts.len() - 2;
+    while idx > 0 && GENERIC_SL.contains(&parts[idx]) {
+        idx -= 1;
+    }
+
+    parts[idx].to_string()
+}
+
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
+fn push_notice(webview: &Option<WebView>, msg: &str, is_error: bool) {
+    if let Some(wv) = webview {
+        let escaped = msg
+            .replace('\\', "\\\\")
+            .replace('\'', "\\'")
+            .replace('\n', "\\n");
+        let flag = if is_error { "true" } else { "false" };
+        let _ = wv.evaluate_script(&format!(
+            "window.__reeve_notice('{escaped}', {flag})"
+        ));
+    }
+}
+
 // --- popup classification ---
 
 enum PopupDisposition {
@@ -221,115 +432,69 @@ enum PopupDisposition {
 
 fn classify_popup(url: &str, parent_origin: Option<&str>) -> PopupDisposition {
     if url.is_empty() {
-        tracing::info!("popup URL is empty — Managed");
         return PopupDisposition::Managed;
     }
 
     let parsed = match url::Url::parse(url) {
         Ok(u) => u,
-        Err(e) => {
-            tracing::warn!(raw = %url, error = %e, "popup URL parse failed — SystemBrowser");
-            return PopupDisposition::SystemBrowser;
-        }
+        Err(_) => return PopupDisposition::SystemBrowser,
     };
 
     let scheme = parsed.scheme();
-
-    // about:, blob:, data: — JS-driven windows.
     if scheme == "about" || scheme == "blob" || scheme == "data" {
-        tracing::info!(%url, scheme, "opaque-scheme popup — Managed");
         return PopupDisposition::Managed;
     }
-
     if scheme != "https" && scheme != "http" {
-        tracing::info!(%url, scheme, "non-http popup — SystemBrowser");
         return PopupDisposition::SystemBrowser;
     }
 
     let host = match parsed.host_str() {
         Some(h) => h.trim_end_matches('.').to_lowercase(),
-        None => {
-            tracing::info!(%url, "popup has no host — SystemBrowser");
-            return PopupDisposition::SystemBrowser;
-        }
+        None => return PopupDisposition::SystemBrowser,
     };
 
-    // Gate 1: exact-origin (host == parent, or host ends with ".parent").
     if let Some(expected) = parent_origin {
         let expected = expected.trim_end_matches('.').to_lowercase();
         if !expected.is_empty() && (host == expected || host.ends_with(&format!(".{expected}"))) {
-            tracing::info!(%url, %host, %expected, "same-origin popup — Managed");
             return PopupDisposition::Managed;
         }
-
-        // Gate 2: same-brand — second-level label matches. Catches
-        // notion.so <-> app.notion.com and similar TLD migrations.
         if same_brand_domain(&host, &expected) {
-            tracing::info!(%url, %host, %expected, "same-brand popup — Managed");
             return PopupDisposition::Managed;
         }
     }
 
-    // Gate 3: known OAuth / identity-provider hosts.
     const OAUTH_HOSTS: &[&str] = &[
-        "accounts.google.com",
-        "ogs.google.com",
-        "apis.google.com",
-        "login.microsoftonline.com",
-        "login.live.com",
-        "login.windows.net",
-        "microsoftonline.com",
-        "appleid.apple.com",
-        "idmsa.apple.com",
-        "auth0.com",
-        "okta.com",
-        "github.com",
-        "githubusercontent.com",
-        "slack.com",
-        "slack-edge.com",
-        "facebook.com",
-        "twitter.com",
-        "x.com",
-        "linkedin.com",
-        "discord.com",
-        "notion.so",
-        "notion.com",
-        "linear.app",
-        "figma.com",
+        "accounts.google.com", "ogs.google.com", "apis.google.com",
+        "login.microsoftonline.com", "login.live.com", "login.windows.net",
+        "microsoftonline.com", "office.com",
+        "appleid.apple.com", "idmsa.apple.com",
+        "auth0.com", "okta.com",
+        "github.com", "githubusercontent.com",
+        "slack.com", "slack-edge.com",
+        "discord.com", "discordapp.com",
+        "spotify.com", "accounts.spotify.com",
+        "facebook.com", "twitter.com", "x.com", "linkedin.com",
+        "notion.so", "notion.com", "linear.app", "figma.com",
     ];
     for allowed in OAUTH_HOSTS {
         if host == *allowed || host.ends_with(&format!(".{allowed}")) {
-            tracing::info!(%url, %host, matched = %allowed, "oauth-host popup — Managed");
             return PopupDisposition::Managed;
         }
     }
 
-    // Gate 4: OAuth / popup-flow query heuristic (case-insensitive).
     if looks_like_oauth(&parsed) {
-        tracing::info!(%url, %host, "oauth-query popup — Managed");
         return PopupDisposition::Managed;
     }
 
-    tracing::info!(%url, %host, "external popup — SystemBrowser");
     PopupDisposition::SystemBrowser
 }
 
-/// Compare the second-level label of two hosts, e.g.
-/// "app.notion.com" and "notion.so" both yield "notion".
-/// Handles "localhost" (no second-level label) by returning false.
 fn same_brand_domain(host: &str, parent: &str) -> bool {
-    let host_label = host.split('.').rev().nth(1).unwrap_or("").to_lowercase();
-    let parent_label = parent.split('.').rev().nth(1).unwrap_or("").to_lowercase();
-    !host_label.is_empty()
-        && !parent_label.is_empty()
-        && host_label != "co"
-        && host_label != "com"
-        && host_label == parent_label
+    let h = host.split('.').rev().nth(1).unwrap_or("").to_lowercase();
+    let p = parent.split('.').rev().nth(1).unwrap_or("").to_lowercase();
+    !h.is_empty() && !p.is_empty() && h != "co" && h != "com" && h == p
 }
 
-/// Detects OAuth / popup-flow URLs by their query parameters, case-insensitively.
-/// Handles both snake_case (redirect_uri) and camelCase (redirectUri) forms,
-/// which Notion and several other providers use.
 fn looks_like_oauth(url: &url::Url) -> bool {
     let query = match url.query() {
         Some(q) => q.to_lowercase(),
@@ -342,8 +507,7 @@ fn looks_like_oauth(url: &url::Url) -> bool {
         || query.contains("redirect_url=")
         || query.contains("redirecttoauth=");
     let has_client_id = query.contains("client_id=") || query.contains("clientid=");
-    let has_response_type =
-        query.contains("response_type=") || query.contains("responsetype=");
+    let has_response_type = query.contains("response_type=") || query.contains("responsetype=");
     let has_scope = query.contains("scope=");
     let has_state = query.contains("state=");
     let has_popup_marker = query.contains("callbacktype=popup")
@@ -363,12 +527,7 @@ fn looks_like_oauth(url: &url::Url) -> bool {
     if has_state && (has_client_id || has_response_type) {
         return true;
     }
-    // Any redirect param on its own is a strong indicator of a popup/redirect
-    // flow — legitimate external links rarely carry redirect=... markers.
-    if has_redirect {
-        return true;
-    }
-    false
+    has_redirect
 }
 
 // --- window construction ---
@@ -409,14 +568,9 @@ fn spawn_app_window(
         .with_url(&start_url)
         .with_new_window_req_handler(move |popup_url, _features| {
             tracing::info!(raw = %popup_url, "NewWindowRequested");
-
             match classify_popup(&popup_url, popup_parent_origin.as_deref()) {
-                PopupDisposition::Managed => {
-                    tracing::info!(%popup_url, "allowing WebView2 to open popup natively");
-                    NewWindowResponse::Allow
-                }
+                PopupDisposition::Managed => NewWindowResponse::Allow,
                 PopupDisposition::SystemBrowser => {
-                    tracing::info!(%popup_url, "routing external popup to system browser");
                     if let Err(e) = open::that(&popup_url) {
                         tracing::warn!(?e, %popup_url, "failed to open system browser");
                     }
