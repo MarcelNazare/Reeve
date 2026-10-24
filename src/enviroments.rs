@@ -1,8 +1,9 @@
 use anyhow::Result;
 use std::path::PathBuf;
 
-/// One WebView2 environment shared by every app instance.
-/// Never construct a second one — that would spawn a second browser process tree.
+/// One shared WebView environment. Every app's WebView must use the same
+/// data directory, or WebView2 will spawn a separate browser process tree
+/// per app, defeating the entire memory-sharing story.
 pub struct SharedEnvironment {
     pub data_dir: PathBuf,
 }

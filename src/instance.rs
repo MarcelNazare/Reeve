@@ -1,6 +1,7 @@
 use crate::catalog::AppRecord;
 use anyhow::Result;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Lifecycle {
     Spawned,
     Ready,
@@ -17,11 +18,14 @@ pub struct AppInstance {
 
 impl AppInstance {
     pub fn spawn(app: AppRecord, session_id: i64) -> Result<Self> {
-        Ok(Self { app, lifecycle: Lifecycle::Spawned, session_id })
+        Ok(Self {
+            app,
+            lifecycle: Lifecycle::Spawned,
+            session_id,
+        })
     }
 
     pub fn transition(&mut self, next: Lifecycle) {
-        // Later: hook Job Object attach here when the renderer PID is known.
         self.lifecycle = next;
     }
 }
