@@ -6,41 +6,23 @@ use crate::instance::{AppInstance, Lifecycle};
 use anyhow::Result;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::mpsc;
 use tao::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
     window::{Window, WindowBuilder, WindowId},
 };
-use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2;
-use wry::{NewWindowResponse, WebContext, WebView, WebViewBuilder, WebViewExtWindows};
-
-/// Wrapper to move a COM interface across the mpsc channel.
-pub struct SendIcore(ICoreWebView2);
-unsafe impl Send for SendIcore {}
+use wry::{NewWindowResponse, WebContext, WebView, WebViewBuilder};
 
 #[derive(Debug, Clone)]
 pub enum UserEvent {
     Launch(String),
     BridgeResponse { window_id: WindowId, script: String },
-    CreatePopup {
-        parent_window_id: WindowId,
-        parent_app_id: String,
-        url: String,
-        sender: mpsc::Sender<SendIcore>,
-    },
 }
 
 struct AppWindow {
     window: Window,
     webview: WebView,
     instance: AppInstance,
-}
-
-struct PopupWindow {
-    _window: Window,
-    _webview: WebView,
-    parent_id: WindowId,
 }
 
 const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
@@ -117,7 +99,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
     let _launcher_keepalive = (launcher_window, launcher_webview);
 
     let mut app_windows: HashMap<WindowId, AppWindow> = HashMap::new();
-    let mut popup_windows: HashMap<WindowId, PopupWindow> = HashMap::new();
     let governor = Rc::new(governor);
     let catalog = Rc::new(catalog);
 
@@ -169,65 +150,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                 }
             }
 
-            Event::UserEvent(UserEvent::CreatePopup {
-                parent_window_id,
-                parent_app_id,
-                url,
-                sender,
-            }) => {
-                tracing::info!(%url, "creating managed popup for WebView2");
-
-                let popup_window = match WindowBuilder::new()
-                    .with_title(format!("{parent_app_id} — Reeve"))
-                    .with_inner_size(tao::dpi::LogicalSize::new(820.0, 650.0))
-                    .build(event_loop)
-                {
-                    Ok(w) => w,
-                    Err(e) => {
-                        tracing::error!(?e, "failed to build popup window");
-                        return;
-                    }
-                };
-                let popup_window_id = popup_window.id();
-
-                let popup_webview = match WebViewBuilder::new_with_web_context(&mut web_context)
-                    .with_url(&url)
-                    .build(&popup_window)
-                {
-                    Ok(w) => w,
-                    Err(e) => {
-                        tracing::error!(?e, "failed to build popup webview");
-                        return;
-                    }
-                };
-
-                // CoreWebView2() is an unsafe COM call; the returned interface is
-                // valid for as long as the owning WebView is alive, which it is
-                // because we insert popup_webview into popup_windows below.
-                let icore = match unsafe { popup_webview.controller().CoreWebView2() } {
-                    Ok(c) => c,
-                    Err(e) => {
-                        tracing::error!(?e, "failed to get popup ICoreWebView2");
-                        return;
-                    }
-                };
-
-                // Hand the real ICoreWebView2 to WebView2 via NewWindowResponse::Create.
-                if sender.send(SendIcore(icore)).is_err() {
-                    tracing::warn!("popup receiver dropped");
-                    return;
-                }
-
-                popup_windows.insert(
-                    popup_window_id,
-                    PopupWindow {
-                        _window: popup_window,
-                        _webview: popup_webview,
-                        parent_id: parent_window_id,
-                    },
-                );
-            }
-
             Event::UserEvent(UserEvent::BridgeResponse { window_id, script }) => {
                 if let Some(aw) = app_windows.get(&window_id) {
                     if let Err(e) = aw.webview.evaluate_script(&script) {
@@ -262,20 +184,7 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                     if aw.instance.session_id >= 0 {
                         let _ = catalog.end_session(aw.instance.session_id);
                     }
-
-                    // Reap popups that belonged to this app.
-                    let orphans: Vec<WindowId> = popup_windows
-                        .iter()
-                        .filter(|(_, pw)| pw.parent_id == window_id)
-                        .map(|(id, _)| *id)
-                        .collect();
-                    for id in orphans {
-                        popup_windows.remove(&id);
-                    }
-
                     tracing::info!(app_id = %aw.instance.app.id, "app closed");
-                } else if popup_windows.remove(&window_id).is_some() {
-                    tracing::info!("popup closed");
                 } else {
                     *control_flow = ControlFlow::Exit;
                 }
@@ -311,48 +220,155 @@ enum PopupDisposition {
 }
 
 fn classify_popup(url: &str, parent_origin: Option<&str>) -> PopupDisposition {
-    let parsed = match url::Url::parse(url) {
-        Ok(u) => u,
-        Err(_) => return PopupDisposition::SystemBrowser,
-    };
-
-    if parsed.scheme() == "about" {
+    if url.is_empty() {
+        tracing::info!("popup URL is empty — Managed");
         return PopupDisposition::Managed;
     }
 
-    if parsed.scheme() != "https" && parsed.scheme() != "http" {
+    let parsed = match url::Url::parse(url) {
+        Ok(u) => u,
+        Err(e) => {
+            tracing::warn!(raw = %url, error = %e, "popup URL parse failed — SystemBrowser");
+            return PopupDisposition::SystemBrowser;
+        }
+    };
+
+    let scheme = parsed.scheme();
+
+    // about:, blob:, data: — JS-driven windows.
+    if scheme == "about" || scheme == "blob" || scheme == "data" {
+        tracing::info!(%url, scheme, "opaque-scheme popup — Managed");
+        return PopupDisposition::Managed;
+    }
+
+    if scheme != "https" && scheme != "http" {
+        tracing::info!(%url, scheme, "non-http popup — SystemBrowser");
         return PopupDisposition::SystemBrowser;
     }
 
     let host = match parsed.host_str() {
-        Some(h) => h.to_lowercase(),
-        None => return PopupDisposition::SystemBrowser,
+        Some(h) => h.trim_end_matches('.').to_lowercase(),
+        None => {
+            tracing::info!(%url, "popup has no host — SystemBrowser");
+            return PopupDisposition::SystemBrowser;
+        }
     };
 
+    // Gate 1: exact-origin (host == parent, or host ends with ".parent").
     if let Some(expected) = parent_origin {
-        let expected = expected.to_lowercase();
-        if host == expected || host.ends_with(&format!(".{expected}")) {
+        let expected = expected.trim_end_matches('.').to_lowercase();
+        if !expected.is_empty() && (host == expected || host.ends_with(&format!(".{expected}"))) {
+            tracing::info!(%url, %host, %expected, "same-origin popup — Managed");
+            return PopupDisposition::Managed;
+        }
+
+        // Gate 2: same-brand — second-level label matches. Catches
+        // notion.so <-> app.notion.com and similar TLD migrations.
+        if same_brand_domain(&host, &expected) {
+            tracing::info!(%url, %host, %expected, "same-brand popup — Managed");
             return PopupDisposition::Managed;
         }
     }
 
+    // Gate 3: known OAuth / identity-provider hosts.
     const OAUTH_HOSTS: &[&str] = &[
         "accounts.google.com",
+        "ogs.google.com",
+        "apis.google.com",
         "login.microsoftonline.com",
         "login.live.com",
+        "login.windows.net",
+        "microsoftonline.com",
         "appleid.apple.com",
+        "idmsa.apple.com",
         "auth0.com",
         "okta.com",
         "github.com",
+        "githubusercontent.com",
         "slack.com",
+        "slack-edge.com",
+        "facebook.com",
+        "twitter.com",
+        "x.com",
+        "linkedin.com",
+        "discord.com",
+        "notion.so",
+        "notion.com",
+        "linear.app",
+        "figma.com",
     ];
     for allowed in OAUTH_HOSTS {
         if host == *allowed || host.ends_with(&format!(".{allowed}")) {
+            tracing::info!(%url, %host, matched = %allowed, "oauth-host popup — Managed");
             return PopupDisposition::Managed;
         }
     }
 
+    // Gate 4: OAuth / popup-flow query heuristic (case-insensitive).
+    if looks_like_oauth(&parsed) {
+        tracing::info!(%url, %host, "oauth-query popup — Managed");
+        return PopupDisposition::Managed;
+    }
+
+    tracing::info!(%url, %host, "external popup — SystemBrowser");
     PopupDisposition::SystemBrowser
+}
+
+/// Compare the second-level label of two hosts, e.g.
+/// "app.notion.com" and "notion.so" both yield "notion".
+/// Handles "localhost" (no second-level label) by returning false.
+fn same_brand_domain(host: &str, parent: &str) -> bool {
+    let host_label = host.split('.').rev().nth(1).unwrap_or("").to_lowercase();
+    let parent_label = parent.split('.').rev().nth(1).unwrap_or("").to_lowercase();
+    !host_label.is_empty()
+        && !parent_label.is_empty()
+        && host_label != "co"
+        && host_label != "com"
+        && host_label == parent_label
+}
+
+/// Detects OAuth / popup-flow URLs by their query parameters, case-insensitively.
+/// Handles both snake_case (redirect_uri) and camelCase (redirectUri) forms,
+/// which Notion and several other providers use.
+fn looks_like_oauth(url: &url::Url) -> bool {
+    let query = match url.query() {
+        Some(q) => q.to_lowercase(),
+        None => return false,
+    };
+
+    let has_redirect = query.contains("redirect_uri=")
+        || query.contains("redirecturi=")
+        || query.contains("redirecturl=")
+        || query.contains("redirect_url=")
+        || query.contains("redirecttoauth=");
+    let has_client_id = query.contains("client_id=") || query.contains("clientid=");
+    let has_response_type =
+        query.contains("response_type=") || query.contains("responsetype=");
+    let has_scope = query.contains("scope=");
+    let has_state = query.contains("state=");
+    let has_popup_marker = query.contains("callbacktype=popup")
+        || query.contains("popupflowid=")
+        || query.contains("popup=true")
+        || query.contains("popup_type=");
+
+    if has_popup_marker {
+        return true;
+    }
+    if has_client_id && has_redirect {
+        return true;
+    }
+    if has_response_type && has_scope {
+        return true;
+    }
+    if has_state && (has_client_id || has_response_type) {
+        return true;
+    }
+    // Any redirect param on its own is a strong indicator of a popup/redirect
+    // flow — legitimate external links rarely carry redirect=... markers.
+    if has_redirect {
+        return true;
+    }
+    false
 }
 
 // --- window construction ---
@@ -386,36 +402,18 @@ fn spawn_app_window(
     let bridge_host = expected_host.clone();
     let bridge_proxy = proxy.clone();
 
-    let popup_proxy = proxy.clone();
-    let popup_app_id = app.id.clone();
     let popup_parent_origin = expected_host.clone();
     let start_url = app.start_url.clone();
 
     let webview = WebViewBuilder::new_with_web_context(web_context)
         .with_url(&start_url)
         .with_new_window_req_handler(move |popup_url, _features| {
+            tracing::info!(raw = %popup_url, "NewWindowRequested");
+
             match classify_popup(&popup_url, popup_parent_origin.as_deref()) {
                 PopupDisposition::Managed => {
-                    // Blocking channel: ask the main event loop to create a real
-                    // tao window + wry WebView, then hand us its ICoreWebView2.
-                    let (tx, rx) = mpsc::channel();
-                    let _ = popup_proxy.send_event(UserEvent::CreatePopup {
-                        parent_window_id: window_id,
-                        parent_app_id: popup_app_id.clone(),
-                        url: popup_url,
-                        sender: tx,
-                    });
-
-                    match rx.recv_timeout(std::time::Duration::from_secs(10)) {
-                        Ok(SendIcore(icore)) => {
-                            tracing::info!("handing popup ICoreWebView2 to WebView2");
-                            NewWindowResponse::Create { webview: icore }
-                        }
-                        Err(e) => {
-                            tracing::error!(?e, "popup creation timed out");
-                            NewWindowResponse::Deny
-                        }
-                    }
+                    tracing::info!(%popup_url, "allowing WebView2 to open popup natively");
+                    NewWindowResponse::Allow
                 }
                 PopupDisposition::SystemBrowser => {
                     tracing::info!(%popup_url, "routing external popup to system browser");
