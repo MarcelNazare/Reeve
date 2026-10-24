@@ -21,6 +21,7 @@ url = "2"
 open = "5"
 
 [target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"          # ← restored: governor.rs uses ICoreWebView2Environment13
 windows = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Security",

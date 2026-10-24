@@ -2272,6 +2272,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+ "webview2-com",
  "windows 0.61.3",
  "winres",
  "wry",
