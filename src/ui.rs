@@ -53,10 +53,20 @@ const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
   .notice.ok { color:#5dc26a; }
   .notice.error { color:#e05050; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
-  .app { background:#1a1a1f; border:1px solid #2a2a32; border-radius:10px; padding:16px; cursor:pointer; transition:all .15s; }
+  .app {
+    background:#1a1a1f; border:1px solid #2a2a32; border-radius:10px;
+    padding:16px; cursor:pointer; transition:all .15s;
+    display:flex; flex-direction:column; align-items:flex-start;
+  }
   .app:hover { border-color:#4a4a5a; background:#202028; }
+  .app .icon {
+    width:32px; height:32px; margin-bottom:10px;
+    border-radius:6px; display:block;
+    background:#2a2a32;
+    object-fit:contain;
+  }
   .app .name { font-size:13px; font-weight:500; }
-  .app .url { font-size:10px; color:#5a5a66; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .app .url { font-size:10px; color:#5a5a66; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
   .empty { color:#5a5a66; font-size:13px; padding:40px 0; text-align:center; }
 </style>
 </head>
@@ -91,14 +101,27 @@ const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
       el.className = 'notice';
     }, 4000);
   }
+  function hostOf(url) {
+    try { return new URL(url).hostname; } catch (e) { return ''; }
+  }
+  function iconHTML(url) {
+    var host = hostOf(url);
+    if (!host) return '<div class="icon"></div>';
+    var src = 'https://www.google.com/s2/favicons?domain=' +
+              encodeURIComponent(host) + '&sz=64';
+    return '<img class="icon" alt="" src="' + src +
+           '" onerror="this.style.visibility=\'hidden\'">';
+  }
   function render(apps) {
     var grid = document.getElementById('grid');
     var empty = document.getElementById('empty');
     if (!apps.length) { empty.style.display='block'; return; }
     empty.style.display='none';
     grid.innerHTML = apps.map(function(a) {
-      return '<div class="app" onclick="launch(\''+a.id+'\')">' +
-        '<div class="name">'+a.name+'</div><div class="url">'+a.start_url+'</div></div>';
+      return '<div class="app" onclick="launch(\'' + a.id + '\')">' +
+        iconHTML(a.start_url) +
+        '<div class="name">' + a.name + '</div>' +
+        '<div class="url">' + a.start_url + '</div></div>';
     }).join('');
   }
   window.__reeve_render = render;
@@ -315,10 +338,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
 
 // --- URL → app record derivation ---
 
-/// Parses a user-pasted URL into (id, display_name, canonical_start_url).
-///
-/// Accepts bare hosts ("linear.app") and full URLs with schemes.
-/// Strips "www." prefixes, preserves port and path.
 fn derive_app_from_url(url_str: &str) -> Result<(String, String, String)> {
     let trimmed = url_str.trim();
     if trimmed.is_empty() {
@@ -373,32 +392,24 @@ fn derive_display_name(host: &str) -> String {
     ];
 
     let base = extract_brand_label(host);
-
     for (key, display) in SPECIAL {
         if base.eq_ignore_ascii_case(key) {
             return display.to_string();
         }
     }
-
     capitalize(&base)
 }
 
 fn extract_brand_label(host: &str) -> String {
     let parts: Vec<&str> = host.split('.').filter(|s| !s.is_empty()).collect();
-
-    if parts.is_empty() {
-        return host.to_string();
-    }
-    if parts.len() == 1 {
-        return parts[0].to_string();
-    }
+    if parts.is_empty() { return host.to_string(); }
+    if parts.len() == 1 { return parts[0].to_string(); }
 
     const GENERIC_SL: &[&str] = &["co", "com", "org", "net", "gov", "edu", "ac", "ne", "or"];
     let mut idx = parts.len() - 2;
     while idx > 0 && GENERIC_SL.contains(&parts[idx]) {
         idx -= 1;
     }
-
     parts[idx].to_string()
 }
 
@@ -515,18 +526,10 @@ fn looks_like_oauth(url: &url::Url) -> bool {
         || query.contains("popup=true")
         || query.contains("popup_type=");
 
-    if has_popup_marker {
-        return true;
-    }
-    if has_client_id && has_redirect {
-        return true;
-    }
-    if has_response_type && has_scope {
-        return true;
-    }
-    if has_state && (has_client_id || has_response_type) {
-        return true;
-    }
+    if has_popup_marker { return true; }
+    if has_client_id && has_redirect { return true; }
+    if has_response_type && has_scope { return true; }
+    if has_state && (has_client_id || has_response_type) { return true; }
     has_redirect
 }
 
