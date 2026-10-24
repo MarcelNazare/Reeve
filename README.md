@@ -72,13 +72,15 @@ Reeve is built on three pillars:
                        │
 ┌──────────────────────▼──────────────────────────────────┐
 │  Windows Job Object                                     │
-│  · limit_process_memory  (per-renderer cap)             │
-│  · limit_job_memory      (total cap)                    │
-│  · limit_kill_on_close   (no orphaned renderers)        │
+│  · ProcessMemoryLimit (per-renderer cap)                │
+│  · JobMemoryLimit     (total cap)                       │
+│  · KillOnJobClose     (no orphaned renderers)           │
 └─────────────────────────────────────────────────────────┘
 ```
 
 Every renderer is attached to the Job Object within 3 seconds of spawn via `ICoreWebView2Environment13::GetProcessInfos`. Memory limits are enforced by the Windows kernel — when a renderer tries to commit past its budget, the allocation fails. Reeve does not poll RSS and react after the fact.
+
+**Implementation note:** the governor talks to the Windows Job Object API **directly through the `windows` crate** (`CreateJobObjectW` + `SetInformationJobObject` + `AssignProcessToJobObject`). It does **not** use `win32job` — that crate only wraps working-set limits, not the committed-memory limits this project needs.
 
 ---
 
@@ -88,7 +90,7 @@ This repository is a **working end-to-end application**. What is implemented:
 
 - ✅ Launcher UI with app grid, seeded catalog, IPC-driven app launch
 - ✅ Shared WebView2 environment across all app windows (one browser process)
-- ✅ Job Object governor with per-process and job-wide memory caps
+- ✅ Job Object governor with per-process and job-wide committed-memory caps, created via the `windows` crate directly
 - ✅ Renderer enumeration and attachment via `GetProcessInfos`, rescanning every 3 seconds
 - ✅ Capability-gated native bridge for `fs.pick`, `fs.read`, `fs.write`, `notify`
 - ✅ Per-app permission storage with canonicalized path checks (blocks `..` and symlink escapes)
@@ -113,7 +115,7 @@ What is not yet implemented:
 - **Windows 10 or 11** (WebView2 Runtime pre-installed on all modern builds)
 - **Rust 1.75+** (stable toolchain)
 - **Visual Studio Build Tools** with the C++ workload (for the MSVC linker)
-- **GNU Make** — comes with Git for Windows (via Git Bash) and MSYS2. Install via `choco install make` or `scoop install make` if needed.
+- **GNU Make** — ships with Git for Windows (via Git Bash) and MSYS2. Install via `choco install make` or `scoop install make` if missing.
 
 Verify WebView2 is present:
 
@@ -134,7 +136,7 @@ cargo check
 cargo run
 ```
 
-Or, using the bundled `Makefile` (recommended — it sets the debug log filter for you):
+Or with the bundled `Makefile` (recommended — it sets the debug log filter):
 
 ```bash
 make          # build
@@ -147,7 +149,7 @@ make fmt      # format code
 make clippy   # lint with warnings as errors
 ```
 
-**Make on Windows:** run `make` from **Git Bash** or **MSYS2**, not `cmd.exe`. The `run` target sets `RUST_LOG` with POSIX shell syntax. If you must use PowerShell, edit the `run` target to `$$env:RUST_LOG="info,reeve=debug"; $(CARGO) run`.
+**Make on Windows:** run `make` from **Git Bash** or **MSYS2**, not `cmd.exe`. The `run` target sets `RUST_LOG` with POSIX shell syntax. From PowerShell, edit the `run` target to `$$env:RUST_LOG="info,reeve=debug"; $(CARGO) run`.
 
 The launcher opens with three seeded apps (Linear, Notion, Figma). Click any app to spawn a window in the shared environment. Open all three, then check Task Manager → Details: there should be **one** `msedgewebview2.exe` browser process, plus one renderer per app. That is the RAM story, proven.
 
@@ -167,6 +169,46 @@ cargo run
 ```
 
 `make run` does this for you.
+
+---
+
+## Project Layout
+
+```
+reeve/
+├── Cargo.toml
+├── Makefile
+├── README.md
+├── .gitignore
+├── migrations/
+│   └── 001_init.sql
+└── src/
+    ├── main.rs           # entry point, seeds catalog, launches UI
+    ├── catalog.rs        # SQLite: apps, permissions, sessions
+    ├── environment.rs    # shared WebView2 data directory
+    ├── governor.rs       # Job Object (via windows crate) + renderer enumeration
+    ├── bridge.rs         # capability checks + native dispatch
+    ├── instance.rs       # app lifecycle state machine
+    └── ui.rs             # launcher window, IPC routing, window spawning
+```
+
+> `migrations/001_init.sql` **must exist at the project root**, next to `Cargo.toml`. `src/catalog.rs` includes it via `include_str!("../migrations/001_init.sql")`, and the build fails without it.
+
+---
+
+## Make Targets Reference
+
+| Command | What it does |
+|---|---|
+| `make` / `make all` | Alias for `make build` |
+| `make build` | `cargo build` (debug) |
+| `make run` | `cargo run` with `RUST_LOG=info,reeve=debug` |
+| `make check` | `cargo check` (fast type-check, no codegen) |
+| `make test` | `cargo test` |
+| `make fmt` | `cargo fmt` |
+| `make clippy` | `cargo clippy -- -D warnings` |
+| `make release` | `cargo build --release` (LTO, stripped) |
+| `make clean` | `cargo clean` |
 
 ---
 
@@ -230,40 +272,13 @@ Responses are delivered back to the app's JavaScript through the Tao event loop 
 
 ---
 
-## Project Layout
+## Renderer Enumeration
 
-```
-reeve/
-├── Cargo.toml
-├── Makefile
-├── README.md
-├── migrations/
-│   └── 001_init.sql
-└── src/
-    ├── main.rs           # entry point, seeds catalog, launches UI
-    ├── catalog.rs        # SQLite: apps, permissions, sessions
-    ├── environment.rs    # shared WebView2 data directory
-    ├── governor.rs       # Job Object + renderer enumeration
-    ├── bridge.rs         # capability checks + native dispatch
-    ├── instance.rs       # app lifecycle state machine
-    └── ui.rs             # launcher window, IPC routing, window spawning
-```
+The `governor` module uses `ICoreWebView2Environment13::GetProcessInfos`, which returns every process associated with the shared WebView2 environment, tagged by kind (`Browser`, `Renderer`, `Gpu`, `Utility`, `Crashpad`). Only `Renderer` processes are attached to the Job Object; browser, GPU, and Crashpad processes are left alone.
 
----
+Why not walk the process tree with `CreateToolhelp32Snapshot`? Because WebView2's process tree is not a simple parent/child hierarchy, and renderer PIDs change as pages navigate. The environment owns the authoritative list.
 
-## Make Targets Reference
-
-| Command | What it does |
-|---|---|
-| `make` / `make all` | Alias for `make build` |
-| `make build` | `cargo build` (debug) |
-| `make run` | `cargo run` with `RUST_LOG=info,reeve=debug` |
-| `make check` | `cargo check` (fast type-check, no codegen) |
-| `make test` | `cargo test` |
-| `make fmt` | `cargo fmt` |
-| `make clippy` | `cargo clippy -- -D warnings` |
-| `make release` | `cargo build --release` (LTO, stripped) |
-| `make clean` | `cargo clean` |
+The event loop rescans every 3 seconds and attaches any newly spawned renderers — pages fork additional renderers as their workload grows (Notion opening a large doc, Figma loading a canvas), and each new renderer must be capped.
 
 ---
 
@@ -272,7 +287,7 @@ reeve/
 | Milestone | Status |
 |---|---|
 | Shared environment, one browser process | ✅ |
-| Job Object memory caps, renderer attachment | ✅ |
+| Job Object memory caps, renderer attachment (via `windows` crate) | ✅ |
 | Capability-gated bridge (v1 capabilities) | ✅ |
 | Origin gate on IPC | ✅ |
 | Bridge response delivery with `request_id` | ✅ |
@@ -308,7 +323,7 @@ The bridge is the attack surface. Design principles:
 - **Scope every path.** File-system operations canonicalize both sides before comparing. Symlinks and `..` traversal are rejected.
 - **User-mediated grants.** `fs.pick` uses the OS file dialog — the user chooses the file, not the web app.
 - **Job Object isolation.** A runaway or malicious renderer is capped at the kernel level. It cannot exhaust system memory.
-- **Kill on close.** `limit_kill_on_job_close` guarantees no orphaned renderers if Reeve crashes.
+- **Kill on close.** `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` guarantees no orphaned renderers if Reeve crashes.
 
 This is not a formal security audit. Before shipping to end users, the bridge should be threat-modeled and externally reviewed — particularly the canonicalization logic, the origin comparison (subdomain matching must handle public-suffix rules), and the IPC body parser.
 
@@ -317,6 +332,19 @@ Known limitations to address before production:
 - **Subdomain matching is naive.** `host.ends_with(".app.example")` is safe for exact hosts, but a full implementation must consult the Public Suffix List to avoid `evil.co.uk` matching `.co.uk`.
 - **No rate limiting on the bridge.** A malicious app could spam `fs.pick` to annoy the user with dialogs.
 - **No audit log.** Bridge calls should be logged to `sessions` for post-incident review.
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `couldn't read migrations/001_init.sql` | Confirm `migrations/001_init.sql` exists at the project root, next to `Cargo.toml` |
+| `no WebviewExtWindows in the root` | Trait is `WebViewExtWindows` — capital V |
+| `no method named 'with_web_context'` | wry 0.52+ renamed it to `WebViewBuilder::new_with_web_context(&mut ctx)` |
+| `ICoreWebView2Environment13` not found | Match `webview2-com` version to whatever `cargo tree -p wry` reports |
+| `ProcessMemoryLimit` / `JobMemoryLimit` field not found | Confirm `windows = "0.58"` and that `Win32_System_JobObjects` feature is enabled |
+| `assign_process` wants `HANDLE` not `u32` | Reeve does not use `win32job`; it calls `OpenProcess` + `AssignProcessToJobObject` directly |
 
 ---
 
@@ -345,7 +373,7 @@ Reeve stands on the shoulders of:
 
 - **[wry](https://github.com/tauri-apps/wry)** — cross-platform WebView abstraction
 - **[tao](https://github.com/tauri-apps/tao)** — windowing and event loop
-- **[win32job](https://github.com/oliviacrain/win32job)** — safe Rust bindings for Windows Job Objects
+- **[windows](https://github.com/microsoft/windows-rs)** — Windows API bindings, including the Job Object surface Reeve uses directly
 - **[webview2-com](https://github.com/wravery/webview2-rs)** — WebView2 COM bindings
 
 The shared-runtime model was inspired by the observation that modern desktop apps are just web apps with a browser bundled inside. Reeve removes the bundle.

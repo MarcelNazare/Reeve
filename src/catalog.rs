@@ -64,6 +64,7 @@ impl Catalog {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn revoke_permission(&self, app_id: &str, capability: &str) -> Result<()> {
         self.conn.execute(
             "DELETE FROM permissions WHERE app_id = ?1 AND capability = ?2",

@@ -6,6 +6,7 @@ pub enum Lifecycle {
     Spawned,
     Ready,
     Backgrounded,
+    #[allow(dead_code)]
     Suspended,
     Killed,
 }

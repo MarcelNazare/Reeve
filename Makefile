@@ -1,5 +1,4 @@
 CARGO ?= cargo
-BIN   := reeve
 
 .PHONY: all build run check clean test release fmt clippy
 

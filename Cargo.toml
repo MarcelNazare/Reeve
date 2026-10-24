@@ -18,12 +18,13 @@ anyhow = "1"
 rfd = "0.15"
 notify-rust = "4"
 url = "2"
+open = "5"
 
 [target.'cfg(windows)'.dependencies]
-win32job = "1"
 webview2-com = "0.38"
 windows = { version = "0.61", features = [
     "Win32_Foundation",
+    "Win32_Security",
     "Win32_System_Com",
     "Win32_System_JobObjects",
     "Win32_System_Threading",
