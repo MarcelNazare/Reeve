@@ -43,68 +43,156 @@ struct DashboardWindow {
     webview: WebView,
 }
 
-const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
+const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
+  :root {
+    --bg: #0a0a0c;
+    --panel: #121217;
+    --border: #25252b;
+    --border-hover: #3a3a42;
+    --text: #ffffff;
+    --text-muted: #8a8a93;
+    --accent: #0084ff;
+    --accent-hover: #2a9bff;
+  }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background:#0f0f11; color:#e8e8ec; padding:24px; }
-  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
-  h1 { font-size:18px; font-weight:600; color:#fff; }
-  .sub { font-size:12px; color:#6b6b76; margin-top:4px; }
-  .header-actions { display:flex; gap:8px; }
-  form { display:flex; gap:8px; margin-bottom:12px; }
-  input[type=url] {
-    flex:1; background:#1a1a1f; border:1px solid #2a2a32; border-radius:8px;
-    padding:10px 12px; color:#e8e8ec; font-size:13px; outline:none;
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    padding: 40px 48px;
+  }
+
+  /* Header */
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 32px;
+  }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .brand-icon { width: 48px; height: 48px; flex-shrink: 0; }
+  .brand-icon svg { width: 100%; height: 100%; }
+  .brand-text h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; color: var(--text); }
+  .brand-text p { font-size: 14px; color: var(--text-muted); }
+
+  .btn-dashboard {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--border);
+    padding: 10px 16px; border-radius: 8px;
+    color: var(--text); font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
     font-family: inherit;
   }
-  input[type=url]:focus { border-color:#4a4a5a; }
-  input[type=url]::placeholder { color:#5a5a66; }
-  button {
-    background:#2a2a32; border:1px solid #3a3a44; color:#e8e8ec;
-    padding:10px 16px; border-radius:8px; font-size:13px;
-    cursor:pointer; font-family: inherit;
+  .btn-dashboard:hover { background: var(--border); border-color: var(--border-hover); }
+  .btn-dashboard svg { width: 16px; height: 16px; color: var(--accent); }
+
+  /* Search Bar */
+  .search-container {
+    display: flex; align-items: center;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 6px; margin-bottom: 32px;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
-  button:hover { background:#3a3a44; }
-  .notice { min-height:20px; font-size:12px; margin-bottom:12px; }
-  .notice.ok { color:#5dc26a; }
-  .notice.error { color:#e05050; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; }
+  .search-container:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 132, 255, 0.15);
+  }
+  .search-icon { margin-left: 16px; margin-right: 12px; color: var(--text-muted); display: flex; align-items: center; }
+  .search-icon svg { width: 20px; height: 20px; }
+  .search-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 16px; font-family: inherit;
+    padding: 10px 0;
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .btn-add {
+    background: var(--accent); color: #fff; border: none;
+    padding: 10px 24px; border-radius: 8px;
+    font-size: 15px; font-weight: 600; font-family: inherit;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn-add:hover { background: var(--accent-hover); }
+
+  /* Notice */
+  .notice {
+    min-height: 20px; font-size: 13px; margin-bottom: 24px;
+    text-align: center; opacity: 0; transition: opacity 0.2s;
+  }
+  .notice.active { opacity: 1; }
+  .notice.ok { color: #34c759; }
+  .notice.error { color: #ff453a; }
+
+  /* App Grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
   .app {
-    background:#1a1a1f; border:1px solid #2a2a32; border-radius:10px;
-    padding:16px; cursor:pointer; transition:all .15s;
-    display:flex; flex-direction:column; align-items:flex-start;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; flex-direction: column; align-items: flex-start;
+    position: relative; overflow: hidden;
   }
-  .app:hover { border-color:#4a4a5a; background:#202028; }
+  .app:hover { background: #1a1a20; border-color: var(--border-hover); transform: translateY(-2px); }
   .app .icon {
-    width:32px; height:32px; margin-bottom:10px;
-    border-radius:6px; display:block;
-    background:#2a2a32; object-fit:contain;
+    width: 40px; height: 40px; margin-bottom: 16px;
+    border-radius: 10px; display: block;
+    background: #25252b; object-fit: contain;
   }
-  .app .name { font-size:13px; font-weight:500; }
-  .app .url { font-size:10px; color:#5a5a66; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
-  .empty { color:#5a5a66; font-size:13px; padding:40px 0; text-align:center; }
+  .app .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+  .app .url { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 </style>
 </head>
 <body>
   <div class="header">
-    <div>
-      <h1>Reeve</h1>
-      <p class="sub">One engine. Many apps. Governed.</p>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 45C20 31.1929 31.1929 20 45 20H55C68.8071 20 80 31.1929 80 45C80 58.8071 68.8071 70 55 70H45C31.1929 70 20 58.8071 20 45Z" fill="url(#paint0_linear)"/>
+          <path d="M55 35C68.8071 35 80 46.1929 80 60V70C80 83.8071 68.8071 95 55 95H45C31.1929 95 20 83.8071 20 70V60C20 46.1929 31.1929 35 45 35H55Z" fill="url(#paint1_linear)"/>
+          <path d="M45 45C51.6274 45 57 50.3726 57 57C57 63.6274 51.6274 69 45 69C38.3726 69 33 63.6274 33 57C33 50.3726 38.3726 45 45 45Z" fill="#0a0a0c"/>
+          <defs>
+            <linearGradient id="paint0_linear" x1="20" y1="20" x2="80" y2="70" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#0084ff"/>
+              <stop offset="1" stop-color="#00e5ff"/>
+            </linearGradient>
+            <linearGradient id="paint1_linear" x1="20" y1="35" x2="80" y2="95" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#0084ff"/>
+              <stop offset="1" stop-color="#00e5ff"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>Reeve</h1>
+        <p>One engine. Many apps. Governed.</p>
+      </div>
     </div>
-    <div class="header-actions">
-      <button onclick="openDashboard()">Dashboard</button>
-    </div>
+    <button class="btn-dashboard" onclick="openDashboard()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+      </svg>
+      Dashboard
+    </button>
   </div>
-  <form id="add-form" onsubmit="return addApp(event)">
-    <input id="add-input" type="url" placeholder="Paste a PWA link (e.g. https://linear.app)" autocomplete="off" spellcheck="false" />
-    <button type="submit">Add</button>
+
+  <form class="search-container" id="add-form" onsubmit="return addApp(event)">
+    <div class="search-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+      </svg>
+    </div>
+    <input id="add-input" class="search-input" type="url" placeholder="Paste a PWA link (e.g. https://linear.app)" autocomplete="off" spellcheck="false" />
+    <button class="btn-add" type="submit">Add</button>
   </form>
+
   <div id="notice" class="notice"></div>
+
   <div class="grid" id="grid"></div>
-  <p class="empty" id="empty" style="display:none">No apps installed yet.</p>
+
 <script>
   function launch(id) { window.ipc.postMessage(JSON.stringify({cmd:'launch', app_id:id})); }
   function openDashboard() { window.ipc.postMessage(JSON.stringify({cmd:'open_dashboard'})); }
@@ -120,10 +208,10 @@ const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
   function notice(msg, isError) {
     var el = document.getElementById('notice');
     el.textContent = msg;
-    el.className = 'notice ' + (isError ? 'error' : 'ok');
+    el.className = 'notice active ' + (isError ? 'error' : 'ok');
     clearTimeout(window.__noticeTimer);
     window.__noticeTimer = setTimeout(function() {
-      el.textContent = ''; el.className = 'notice';
+      el.className = 'notice';
     }, 4000);
   }
   function hostOf(url) {
@@ -133,15 +221,12 @@ const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
     var host = hostOf(url);
     if (!host) return '<div class="icon"></div>';
     var src = 'https://www.google.com/s2/favicons?domain=' +
-              encodeURIComponent(host) + '&sz=64';
+              encodeURIComponent(host) + '&sz=128';
     return '<img class="icon" alt="" src="' + src +
            '" onerror="this.style.visibility=\'hidden\'">';
   }
   function render(apps) {
     var grid = document.getElementById('grid');
-    var empty = document.getElementById('empty');
-    if (!apps.length) { empty.style.display='block'; return; }
-    empty.style.display='none';
     grid.innerHTML = apps.map(function(a) {
       return '<div class="app" onclick="launch(\'' + a.id + '\')">' +
         iconHTML(a.start_url) +
@@ -153,72 +238,63 @@ const LAUNCHER_HTML: &str = r#"<!DOCTYPE html>
   window.__reeve_notice = notice;
 </script>
 </body>
-</html>"#;
+</html>"##;
 
-const DASHBOARD_HTML: &str = r#"<!DOCTYPE html>
+const DASHBOARD_HTML: &str = r##"<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
+  :root {
+    --bg: #0a0a0c;
+    --panel: #121217;
+    --border: #25252b;
+    --border-hover: #3a3a42;
+    --text: #ffffff;
+    --text-muted: #8a8a93;
+    --accent: #0084ff;
+    --accent-hover: #2a9bff;
+  }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background:#0f0f11; color:#e8e8ec; padding:24px; }
-  h1 { font-size:18px; font-weight:600; color:#fff; }
-  h2 { font-size:14px; font-weight:600; color:#fff; margin:20px 0 10px; }
-  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-  .sub { font-size:12px; color:#6b6b76; margin-top:4px; }
-  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:8px; }
-  .stat { background:#1a1a1f; border:1px solid #2a2a32; border-radius:10px; padding:16px; }
-  .stat .label { font-size:11px; color:#6b6b76; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
-  .stat .value { font-size:22px; font-weight:600; color:#fff; }
-  table { width:100%; border-collapse:collapse; background:#1a1a1f; border-radius:10px; overflow:hidden; }
-  th { text-align:left; padding:10px 14px; font-size:11px; color:#6b6b76; text-transform:uppercase; letter-spacing:0.5px; background:#15151a; }
-  td { padding:12px 14px; border-top:1px solid #2a2a32; font-size:13px; vertical-align:middle; }
-  tr:hover td { background:#1f1f25; }
-  .name { font-weight:500; color:#fff; }
-  .url { font-size:11px; color:#5a5a66; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px; }
-  .badge { display:inline-block; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:500; }
-  .badge-open { background:#1e3a24; color:#5dc26a; }
-  .badge-closed { background:#2a2a32; color:#9090a0; }
-  .perm-chip {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:3px 6px 3px 8px; margin:2px 3px 2px 0;
-    background:#252530; border:1px solid #353540; border-radius:5px;
-    font-size:11px; color:#c8c8d0;
-  }
-  .perm-chip button {
-    background:transparent; border:none; color:#707080; cursor:pointer;
-    padding:0; font-size:14px; line-height:1; padding:0 2px;
-  }
-  .perm-chip button:hover { color:#e05050; }
-  .muted { color:#5a5a66; font-size:12px; }
-  .btn-sm {
-    padding:5px 10px; font-size:12px;
-    background:#2a2a32; border:1px solid #3a3a44; color:#e8e8ec;
-    border-radius:6px; cursor:pointer; font-family:inherit;
-  }
-  .btn-sm:hover { background:#3a3a44; }
-  .btn-sm.btn-primary { background:#2a3a52; border-color:#3a4a62; color:#8ab4f8; }
-  .btn-sm.btn-primary:hover { background:#3a4a62; }
-  .btn-sm.btn-danger { background:#3a2020; border-color:#4a2a2a; color:#e05050; }
-  .btn-sm.btn-danger:hover { background:#4a2a2a; }
-  .btn-sm.btn-add { padding:3px 8px; font-size:11px; }
-  dialog {
-    background:#1a1a1f; color:#e8e8ec; border:1px solid #3a3a44;
-    border-radius:10px; padding:20px; max-width:400px;
-  }
-  dialog::backdrop { background:rgba(0,0,0,0.7); }
-  dialog h3 { font-size:14px; margin-bottom:14px; color:#fff; }
-  dialog label { display:block; margin-bottom:12px; font-size:12px; color:#a0a0b0; }
-  dialog input, dialog select {
-    display:block; width:100%; margin-top:4px;
-    background:#0f0f11; border:1px solid #2a2a32; border-radius:6px;
-    padding:8px 10px; color:#e8e8ec; font-size:13px; font-family:inherit;
-    outline:none;
-  }
-  dialog input:focus, dialog select:focus { border-color:#4a4a5a; }
-  dialog .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
-  .processes { font-size:11px; color:#6b6b76; margin-top:8px; }
-  .processes span { display:inline-block; margin-right:10px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); padding: 40px 48px; }
+  h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; color: var(--text); }
+  h2 { font-size: 16px; font-weight: 600; color: var(--text); margin: 32px 0 16px; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .sub { font-size: 14px; color: var(--text-muted); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .stat .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600; }
+  .stat .value { font-size: 28px; font-weight: 700; color: var(--text); }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  th { text-align: left; padding: 12px 20px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; background: #18181d; font-weight: 600; }
+  td { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
+  tr:hover td { background: #18181d; }
+  .name { font-weight: 600; color: var(--text); }
+  .url { font-size: 12px; color: var(--text-muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .badge-open { background: rgba(52, 199, 89, 0.15); color: #34c759; }
+  .badge-closed { background: rgba(142, 142, 147, 0.15); color: var(--text-muted); }
+  .perm-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px 4px 10px; margin: 2px 4px 2px 0; background: #1c1c22; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: #c8c8d0; }
+  .perm-chip button { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0; font-size: 16px; line-height: 1; transition: color 0.2s; }
+  .perm-chip button:hover { color: #ff453a; }
+  .muted { color: var(--text-muted); font-size: 13px; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; font-weight: 500; background: var(--panel); border: 1px solid var(--border); color: var(--text); border-radius: 8px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+  .btn-sm:hover { background: var(--border); border-color: var(--border-hover); }
+  .btn-sm.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-sm.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-sm.btn-danger { background: rgba(255, 69, 58, 0.1); border-color: rgba(255, 69, 58, 0.2); color: #ff453a; }
+  .btn-sm.btn-danger:hover { background: rgba(255, 69, 58, 0.2); border-color: rgba(255, 69, 58, 0.3); }
+  .btn-sm.btn-add { padding: 4px 10px; font-size: 12px; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 400px; width: 100%; }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); }
+  dialog h3 { font-size: 18px; margin-bottom: 20px; color: var(--text); font-weight: 600; }
+  dialog label { display: block; margin-bottom: 16px; font-size: 13px; color: var(--text-muted); }
+  dialog input, dialog select { display: block; width: 100%; margin-top: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; }
+  dialog input:focus, dialog select:focus { border-color: var(--accent); }
+  dialog .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+  .processes { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+  .processes span { display: inline-block; margin-right: 12px; }
+  .processes strong { color: var(--text); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -344,7 +420,7 @@ const DASHBOARD_HTML: &str = r#"<!DOCTYPE html>
 
     var tbody = document.getElementById('app-rows');
     if (!data.apps.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center">No apps installed</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center; padding: 40px;">No apps installed</td></tr>';
       return;
     }
     tbody.innerHTML = data.apps.map(function(app) {
@@ -381,9 +457,7 @@ const DASHBOARD_HTML: &str = r#"<!DOCTYPE html>
   window.addEventListener('DOMContentLoaded', refresh);
 </script>
 </body>
-</html>"#;
-
-// --- dashboard data shape (serialized to JSON) ---
+</html>"##;
 
 #[derive(Serialize)]
 struct DashboardData {
@@ -425,7 +499,7 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
 
     let launcher_window = WindowBuilder::new()
         .with_title("Reeve")
-        .with_inner_size(tao::dpi::LogicalSize::new(720.0, 560.0))
+        .with_inner_size(tao::dpi::LogicalSize::new(800.0, 600.0))
         .build(&event_loop)?;
 
     let mut web_context = WebContext::new(Some(env.data_dir.clone()));
@@ -688,8 +762,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
     });
 }
 
-// --- dashboard helpers ---
-
 fn spawn_dashboard_window(
     event_loop: &EventLoopWindowTarget<UserEvent>,
     web_context: &mut WebContext,
@@ -697,7 +769,7 @@ fn spawn_dashboard_window(
 ) -> Result<DashboardWindow> {
     let window = WindowBuilder::new()
         .with_title("Reeve — Dashboard")
-        .with_inner_size(tao::dpi::LogicalSize::new(960.0, 640.0))
+        .with_inner_size(tao::dpi::LogicalSize::new(1000.0, 700.0))
         .build(event_loop)?;
 
     let webview = WebViewBuilder::new_with_web_context(web_context)
@@ -824,8 +896,6 @@ fn push_dashboard(
     }
 }
 
-// --- URL → app record derivation ---
-
 fn derive_app_from_url(url_str: &str) -> Result<(String, String, String)> {
     let trimmed = url_str.trim();
     if trimmed.is_empty() {
@@ -908,8 +978,6 @@ fn push_notice(webview: &Option<WebView>, msg: &str, is_error: bool) {
         ));
     }
 }
-
-// --- popup classification ---
 
 enum PopupDisposition {
     Managed,
@@ -998,8 +1066,6 @@ fn looks_like_oauth(url: &url::Url) -> bool {
     if has_state && (has_client_id || has_response_type) { return true; }
     has_redirect
 }
-
-// --- window construction ---
 
 fn spawn_app_window(
     event_loop: &EventLoopWindowTarget<UserEvent>,

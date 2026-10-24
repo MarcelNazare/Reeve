@@ -4,6 +4,16 @@
 
 Reeve is a native PWA launcher for Windows. It replaces heavyweight Electron bundles and Chromium-per-app patterns with a single shared WebView2 runtime, kernel-enforced memory caps, and a capability-gated bridge that gives web apps native superpowers without sacrificing the sandbox.
 
+**v0.2.0** ships with a managed dashboard: live memory, editable permissions, and a per-app kill switch.
+
+<p align="center">
+  <img
+    src="assets/reeve-product-snapshot.png"
+    alt="Reeve — Native PWA launcher for Windows"
+    width="100%"
+  />
+</p>
+
 ---
 
 ## The Problem
@@ -39,13 +49,13 @@ Reeve is built on three pillars:
 
 **2. A native bridge with real capabilities.** Web apps request file-system access, native notifications, and other desktop features through a capability-gated IPC bridge. Every call is validated against a per-app manifest — capability check, scope check, origin check — before the native function executes. Nothing is granted by default.
 
-**3. A managed dashboard.** Live memory per app, editable permission grants, and a per-app kill switch. The savings are visible, not a marketing claim.
+**3. A managed dashboard.** Live memory, editable permission grants, per-app kill switch. The savings are visible; the control is real.
 
 ---
 
 ## Why It Matters
 
-**For users.** Old laptops feel new again. Battery life extends because you are not running five browser engines. Memory is capped at the kernel level, so one runaway app cannot starve the others. When something misbehaves, the dashboard lets you see it and stop it in one click.
+**For users.** Old laptops feel new again. Battery life extends because you are not running five browser engines. Memory is capped at the kernel level, so one runaway app cannot starve the others. When something misbehaves, the dashboard shows it and stops it in one click.
 
 **For developers.** Build one PWA that works everywhere. Get desktop-grade capabilities through a predictable, documented bridge — without bundling Chromium and without learning a new framework.
 
@@ -84,7 +94,7 @@ Every renderer is attached to the Job Object via `ICoreWebView2Environment13::Ge
 
 The governor talks to the Job Object API **directly through the `windows` crate** (`CreateJobObjectW` + `SetInformationJobObject` + `AssignProcessToJobObject`), not through a third-party wrapper.
 
-The dashboard is a second WebView in the same `WebContext`, which means it sees the entire WebView2 process tree via `GetProcessInfos` — the honest aggregate number that proves the RAM story.
+The dashboard is a second WebView in the same `WebContext`, so it sees the entire WebView2 process tree via `GetProcessInfos` — the honest aggregate number that proves the RAM story.
 
 ---
 
@@ -211,29 +221,31 @@ Click **Dashboard** in the launcher header. A second window opens, sharing the s
 
 Every 2 seconds, the dashboard queries `ICoreWebView2Environment13::GetProcessInfos` to enumerate every process associated with the environment, then resolves each PID's working set via `GetProcessMemoryInfo`. Two displays:
 
-- **Total WebView2 memory** — the sum of working set across browser, GPU, and every renderer. This is the number that matters for the "one engine, many apps" story.
+- **Total WebView2 memory** — sum of working set across browser, GPU, and every renderer. This is the number that matters for the "one engine, many apps" story.
 - **Per-kind breakdown** — a chip per process kind showing its share.
 
-Per-app memory is **deliberately not** attributed, because WebView2's environment-wide API doesn't map renderers to controllers. The dashboard tells the truth: aggregate memory is what the OS sees.
+Per-app memory is **deliberately not** attributed, because WebView2's environment-wide API doesn't map renderers to controllers. The dashboard tells the truth: aggregate memory is what the OS sees, and it's the same number the benchmark will report.
 
 ### Permission editor
 
-Each app row shows its grants as chips. Click **×** on a chip to revoke that specific `(capability, scope)` pair. Click **+ Add** to open a modal:
+Each app row shows its grants as chips. Two actions:
 
-- **Capability:** `notify` / `fs.pick` / `fs.read` / `fs.write`
-- **Scope:** path prefix for `fs.read` / `fs.write`, blank for `notify` and `fs.pick`
+- **Revoke** — click `×` on any chip to remove that specific `(capability, scope)` pair. Backed by `Catalog::revoke_permission_scope`.
+- **Grant** — click **+ Add** to open a modal: pick a capability (`notify` / `fs.pick` / `fs.read` / `fs.write`), enter a path scope for `fs.read` / `fs.write`, submit.
 
-Grants take effect on the app's next launch — the bridge preloads permissions when the WebView is created, so a running app keeps its original grant set until restarted.
+Grants take effect on the app's next launch. The bridge preloads permissions at WebView-creation time, so a running app keeps its original grant set until restarted — a security property, not a limitation.
 
 ### Kill switch
 
 Each open app row shows **Kill**, which:
 
-1. Removes the app from `app_windows`, dropping its `Window` and `WebView` — closing the OS window and ending the renderer.
+1. Removes the app from `app_windows`, dropping its `Window` and `WebView` — the OS window closes and the renderer exits.
 2. Transitions the instance to `Lifecycle::Killed`.
 3. Writes `ended_at` to the SQLite session row.
 
 Closed apps show **Launch** instead, which revives them via the same `UserEvent::Launch` path the launcher grid uses.
+
+The kill switch is a UX tool for stopping misbehaving apps, not a security boundary — the actual containment is the Job Object memory cap.
 
 ---
 
@@ -256,7 +268,7 @@ catalog.grant_permission("notion", "fs.write", r"C:\Users\Public")?;
 catalog.grant_permission("slack", "notify",   "")?;
 ```
 
-Both the requested path and the granted scope are canonicalized before the prefix check, blocking `..` traversal and symlink escapes. The dashboard's permission editor calls the same `grant_permission` / `revoke_permission_scope` methods the seeder uses.
+Both the requested path and the granted scope are canonicalized before the prefix check, blocking `..` traversal and symlink escapes. The dashboard's permission editor calls the same methods the seeder uses — one grant store, one check path.
 
 ---
 
