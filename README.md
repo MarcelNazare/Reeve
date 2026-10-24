@@ -59,6 +59,7 @@ Reeve is built on three pillars:
 │  ├─ App catalog (SQLite)                                │
 │  ├─ Permission store + capability checks                │
 │  ├─ Job Object manager (kernel memory caps)             │
+│  ├─ Popup classifier + system-browser routing           │
 │  └─ Launcher WebView (dogfoods the same environment)    │
 └──────────────────────┬──────────────────────────────────┘
                        │ one shared WebContext
@@ -78,35 +79,38 @@ Reeve is built on three pillars:
 └─────────────────────────────────────────────────────────┘
 ```
 
-Every renderer is attached to the Job Object within 3 seconds of spawn via `ICoreWebView2Environment13::GetProcessInfos`. Memory limits are enforced by the Windows kernel — when a renderer tries to commit past its budget, the allocation fails. Reeve does not poll RSS and react after the fact.
+Every renderer is attached to the Job Object via `ICoreWebView2Environment13::GetProcessInfos`, rescanned every 3 seconds. Memory limits are enforced by the Windows kernel. WebView2 sandboxes its own renderers into a private job, so some `AssignProcessToJobObject` calls return `ERROR_ACCESS_DENIED` — expected and handled gracefully; the job-wide cap on the browser process covers the tree.
 
-**Implementation note:** the governor talks to the Windows Job Object API **directly through the `windows` crate** (`CreateJobObjectW` + `SetInformationJobObject` + `AssignProcessToJobObject`). It does **not** use `win32job` — that crate only wraps working-set limits, not the committed-memory limits this project needs.
+The governor talks to the Job Object API **directly through the `windows` crate** (`CreateJobObjectW` + `SetInformationJobObject` + `AssignProcessToJobObject`), not through a third-party wrapper.
 
 ---
 
 ## Current State
 
-This repository is a **working end-to-end application**. What is implemented:
+**Working end-to-end:**
 
-- ✅ Launcher UI with app grid, seeded catalog, IPC-driven app launch
-- ✅ Shared WebView2 environment across all app windows (one browser process)
-- ✅ Job Object governor with per-process and job-wide committed-memory caps, created via the `windows` crate directly
-- ✅ Renderer enumeration and attachment via `GetProcessInfos`, rescanning every 3 seconds
-- ✅ Capability-gated native bridge for `fs.pick`, `fs.read`, `fs.write`, `notify`
-- ✅ Per-app permission storage with canonicalized path checks (blocks `..` and symlink escapes)
-- ✅ **Origin gate** — IPC rejected unless the page host matches the app's launch origin
-- ✅ **Bridge response delivery** through the event loop, with `request_id` correlation
+- ✅ Launcher UI with search bar, app grid, URL-based install
+- ✅ 30 seeded PWAs across productivity, communication, media, Google Workspace, dev tools, social
+- ✅ Idempotent seeding — new seed entries appear on next launch without a DB wipe
+- ✅ Shared WebView2 environment (one browser process across all apps)
+- ✅ Job Object governor with per-process and job-wide memory caps
+- ✅ Renderer enumeration via `GetProcessInfos`, best-effort attachment
+- ✅ Capability-gated bridge: `fs.pick`, `fs.read`, `fs.write`, `notify`
+- ✅ Canonicalized path checks (blocks `..` and symlink escapes)
+- ✅ Origin gate on IPC (subdomain-aware)
+- ✅ Bridge response delivery through the event loop with `request_id` correlation
 - ✅ Session tracking (start on spawn, end on window close)
-- ✅ SQLite catalog for apps, permissions, and sessions
+- ✅ Smart popup handling: OAuth and same-brand popups open as managed windows; external links route to the system browser
+- ✅ URL search bar with dedup against id and start_url
 
-What is not yet implemented:
+**Not yet implemented:**
 
-- ⏳ Dashboard view (memory table, permission editor, kill switch)
-- ⏳ PWA manifest ingestion (installer flow — apps are seeded from code today)
+- ⏳ Dashboard view (live memory table, permission editor, kill switch)
+- ⏳ PWA manifest ingestion (today the search bar only records the URL)
 - ⏳ Benchmark harness for the RAM comparison
-- ⏳ macOS and Linux targets (structure is in place; native primitives are stubbed)
-- ⏳ Populating `sessions.peak_mem_bytes` from live Job Object stats
-- ⏳ Toolhelp32 fallback for WebView2 runtimes older than ~2023
+- ⏳ macOS and Linux targets
+- ⏳ `sessions.peak_mem_bytes` populated from live Job Object stats
+- ⏳ Toolhelp32 fallback for older WebView2 runtimes
 
 ---
 
@@ -114,8 +118,8 @@ What is not yet implemented:
 
 - **Windows 10 or 11** (WebView2 Runtime pre-installed on all modern builds)
 - **Rust 1.75+** (stable toolchain)
-- **Visual Studio Build Tools** with the C++ workload (for the MSVC linker)
-- **GNU Make** — ships with Git for Windows (via Git Bash) and MSYS2. Install via `choco install make` or `scoop install make` if missing.
+- **Visual Studio Build Tools** with the C++ workload (MSVC linker)
+- **GNU Make** — ships with Git for Windows and MSYS2; install via `choco install make` or `scoop install make` if missing
 
 Verify WebView2 is present:
 
@@ -136,7 +140,7 @@ cargo check
 cargo run
 ```
 
-Or with the bundled `Makefile` (recommended — it sets the debug log filter):
+Or with the bundled `Makefile`:
 
 ```bash
 make          # build
@@ -151,14 +155,14 @@ make clippy   # lint with warnings as errors
 
 **Make on Windows:** run `make` from **Git Bash** or **MSYS2**, not `cmd.exe`. The `run` target sets `RUST_LOG` with POSIX shell syntax. From PowerShell, edit the `run` target to `$$env:RUST_LOG="info,reeve=debug"; $(CARGO) run`.
 
-The launcher opens with three seeded apps (Linear, Notion, Figma). Click any app to spawn a window in the shared environment. Open all three, then check Task Manager → Details: there should be **one** `msedgewebview2.exe` browser process, plus one renderer per app. That is the RAM story, proven.
+On first launch, Reeve opens with 30 seeded apps. Click one to spawn a window in the shared environment. Open five of them and check Task Manager → Details: there should be **one** `msedgewebview2.exe` browser process, plus one renderer per app.
 
-Data directory (catalog, WebView2 user-data, logs):
+Data directory:
 
 ```
 %APPDATA%\Reeve\Reeve\data\
-├── catalog.db
-└── webview\
+├── catalog.db      # apps, permissions, sessions
+└── webview\        # shared WebView2 user-data folder
 ```
 
 Logging is on by default at `info`; set `RUST_LOG=debug` for bridge-level tracing:
@@ -168,72 +172,52 @@ $env:RUST_LOG="info,reeve=debug"
 cargo run
 ```
 
-`make run` does this for you.
-
 ---
 
-## Project Layout
+## Adding Apps
 
+### Via the launcher
+
+Paste a URL into the search bar at the top of the launcher and press **Add**. Reeve accepts:
+
+- `linear.app` (bare host — `https://` is prepended)
+- `https://app.notion.com/some/path` (path preserved)
+- `www.example.co.uk` (`www.` is stripped)
+
+The id is derived from the host (`app.notion.com` → `app-notion-com`), the display name from the brand label (`Notion`), and duplicates are detected against both id and start_url. Success and failure are reported via a transient toast.
+
+### Via seeding
+
+Edit `seed_catalog()` in `src/main.rs` and add:
+
+```rust
+catalog.add_app("myapp", "My App", "https://myapp.example")?;
 ```
-reeve/
-├── Cargo.toml
-├── Makefile
-├── README.md
-├── .gitignore
-├── migrations/
-│   └── 001_init.sql
-└── src/
-    ├── main.rs           # entry point, seeds catalog, launches UI
-    ├── catalog.rs        # SQLite: apps, permissions, sessions
-    ├── environment.rs    # shared WebView2 data directory
-    ├── governor.rs       # Job Object (via windows crate) + renderer enumeration
-    ├── bridge.rs         # capability checks + native dispatch
-    ├── instance.rs       # app lifecycle state machine
-    └── ui.rs             # launcher window, IPC routing, window spawning
-```
 
-> `migrations/001_init.sql` **must exist at the project root**, next to `Cargo.toml`. `src/catalog.rs` includes it via `include_str!("../migrations/001_init.sql")`, and the build fails without it.
-
----
-
-## Make Targets Reference
-
-| Command | What it does |
-|---|---|
-| `make` / `make all` | Alias for `make build` |
-| `make build` | `cargo build` (debug) |
-| `make run` | `cargo run` with `RUST_LOG=info,reeve=debug` |
-| `make check` | `cargo check` (fast type-check, no codegen) |
-| `make test` | `cargo test` |
-| `make fmt` | `cargo fmt` |
-| `make clippy` | `cargo clippy -- -D warnings` |
-| `make release` | `cargo build --release` (LTO, stripped) |
-| `make clean` | `cargo clean` |
+The `is_empty` guard has been removed — seeding runs on every launch and is idempotent (`INSERT OR REPLACE` on `id`, `INSERT OR IGNORE` on permissions). New entries appear on the next `make run`; existing apps and search-bar additions are untouched.
 
 ---
 
 ## Capability Model
 
-Every app declares which native capabilities it needs. The catalog stores grants per `(app_id, capability, scope)`. Permissions are preloaded into the bridge when an app window is created; changing grants while an app is running requires restarting that app's window.
+Every app declares which native capabilities it needs. Grants live in `(app_id, capability, scope)`. Permissions are preloaded into the bridge at window-creation time; changing grants while an app is running requires restarting that window.
 
 | Capability | Scope | Native implementation |
 |---|---|---|
-| `fs.pick` | none (user-mediated dialog) | `rfd::FileDialog::pick_files` |
+| `fs.pick` | none (user-mediated) | `rfd::FileDialog::pick_files` |
 | `fs.read` | path prefix | `std::fs::read_to_string` (canonicalized) |
 | `fs.write` | path prefix | `std::fs::write` (canonicalized) |
 | `notify` | none | `notify_rust::Notification::show` |
 
-Grants are seeded programmatically today. A future milestone exposes a permission editor in the dashboard.
-
-Example grant (from `main.rs`):
+Example seed grants (from `seed_catalog`):
 
 ```rust
 catalog.grant_permission("notion", "fs.read",  r"C:\Users\Public")?;
 catalog.grant_permission("notion", "fs.write", r"C:\Users\Public")?;
-catalog.grant_permission("linear", "notify",   "")?;
+catalog.grant_permission("slack", "notify",   "")?;
 ```
 
-The bridge canonicalizes both the requested path and the granted scope before the prefix check, blocking `..` traversal and symlink escapes.
+Both the requested path and the granted scope are canonicalized before the prefix check, blocking `..` traversal and symlink escapes.
 
 ---
 
@@ -258,27 +242,76 @@ window.addEventListener("reeve-response", (e) => {
 
 Every call passes through three gates before the native function runs:
 
-1. **Origin gate** — the IPC event's page host must match the app's launch origin (or a subdomain of it). Blocks third-party pages from invoking the bridge during OAuth redirects or malicious navigations.
-2. **Capability gate** — the app must have an entry for that capability in the `permissions` table.
+1. **Origin gate** — the IPC event's page host must match the app's launch origin (or a subdomain). Blocks third-party pages during OAuth redirects or malicious navigations.
+2. **Capability gate** — the app must have an entry for that capability.
 3. **Scope gate** — for path-taking capabilities, the canonicalized requested path must fall within a canonicalized granted scope.
 
-A failed check returns a structured response and never touches the OS:
+Failure returns a structured error without touching the OS:
 
 ```json
 { "ok": false, "error": "path 'C:\\Windows' is outside the granted scope for 'fs.read'", "request_id": "req-1" }
 ```
 
-Responses are delivered back to the app's JavaScript through the Tao event loop — `UserEvent::BridgeResponse` carries a script that dispatches a `reeve-response` `CustomEvent` on `window`. This avoids the deadlock that occurs when trying to `evaluate_script` from inside the IPC handler during webview construction.
+Responses travel back through the Tao event loop — `UserEvent::BridgeResponse` carries a script that dispatches a `reeve-response` `CustomEvent` on `window`. This avoids the deadlock that occurs when calling `evaluate_script` from inside the IPC handler during WebView construction.
 
 ---
 
-## Renderer Enumeration
+## Popup Handling
 
-The `governor` module uses `ICoreWebView2Environment13::GetProcessInfos`, which returns every process associated with the shared WebView2 environment, tagged by kind (`Browser`, `Renderer`, `Gpu`, `Utility`, `Crashpad`). Only `Renderer` processes are attached to the Job Object; browser, GPU, and Crashpad processes are left alone.
+Every app window installs a `new_window_req_handler`. The classifier (`classify_popup`) routes each popup through these gates in order:
 
-Why not walk the process tree with `CreateToolhelp32Snapshot`? Because WebView2's process tree is not a simple parent/child hierarchy, and renderer PIDs change as pages navigate. The environment owns the authoritative list.
+| Gate | Rule | Example |
+|---|---|---|
+| Opaque scheme | `about:`, `blob:`, `data:` → Managed | JS-driven `window.open()` |
+| Same origin | Host equals or is a subdomain of the app | `app.linear.app` from `linear.app` |
+| Same brand | Second-level labels match | `notion.so` ↔ `app.notion.com` |
+| Known OAuth | Explicit allow-list of auth hosts | `accounts.google.com`, `login.microsoftonline.com`, `github.com` |
+| OAuth query | `redirect_uri=`, `clientId=`, `popupFlowId=`, `callbackType=popup`, etc. | Custom OAuth providers |
 
-The event loop rescans every 3 seconds and attaches any newly spawned renderers — pages fork additional renderers as their workload grows (Notion opening a large doc, Figma loading a canvas), and each new renderer must be capped.
+- **Managed** → `NewWindowResponse::Allow`. WebView2 opens a real popup with a valid `WindowProxy` sharing the parent's cookie jar. OAuth completes and `window.open()` doesn't return `null`, so sites don't show their "popups blocked" message.
+- **SystemBrowser** → `open::that(url)` and `NewWindowResponse::Deny`. External links open in the user's default browser and never load inside the shared `WebContext`.
+
+The query heuristic is case-insensitive and covers both snake_case (`redirect_uri=`) and camelCase (`redirectUri=`) forms, plus Notion/Firebase-style `popupFlowId=` markers.
+
+---
+
+## Project Layout
+
+```
+reeve/
+├── Cargo.toml
+├── Makefile
+├── README.md
+├── .gitignore
+├── migrations/
+│   └── 001_init.sql
+└── src/
+    ├── main.rs           # entry, seed_catalog(), launches the UI
+    ├── catalog.rs        # SQLite: apps, permissions, sessions
+    ├── environment.rs    # shared WebView2 data directory
+    ├── governor.rs       # Job Object + renderer enumeration
+    ├── bridge.rs         # capability checks + native dispatch
+    ├── instance.rs       # app lifecycle state machine
+    └── ui.rs             # launcher window, URL install, IPC, popups
+```
+
+> `migrations/001_init.sql` must exist at the project root. `src/catalog.rs` includes it via `include_str!("../migrations/001_init.sql")`.
+
+---
+
+## Make Targets Reference
+
+| Command | What it does |
+|---|---|
+| `make` / `make all` | Alias for `make build` |
+| `make build` | `cargo build` (debug) |
+| `make run` | `cargo run` with `RUST_LOG=info,reeve=debug` |
+| `make check` | `cargo check` (fast type-check, no codegen) |
+| `make test` | `cargo test` |
+| `make fmt` | `cargo fmt` |
+| `make clippy` | `cargo clippy -- -D warnings` |
+| `make release` | `cargo build --release` (LTO, stripped) |
+| `make clean` | `cargo clean` |
 
 ---
 
@@ -287,14 +320,16 @@ The event loop rescans every 3 seconds and attaches any newly spawned renderers 
 | Milestone | Status |
 |---|---|
 | Shared environment, one browser process | ✅ |
-| Job Object memory caps, renderer attachment (via `windows` crate) | ✅ |
+| Job Object memory caps, renderer attachment | ✅ |
 | Capability-gated bridge (v1 capabilities) | ✅ |
 | Origin gate on IPC | ✅ |
 | Bridge response delivery with `request_id` | ✅ |
 | Session tracking on open/close | ✅ |
-| Makefile build helpers | ✅ |
+| URL search bar with dedupe | ✅ |
+| Popup classification (OAuth, same-brand, query heuristic) | ✅ |
+| 30-app seed catalog, idempotent | ✅ |
 | Dashboard (memory table, permission editor, kill switch) | ⏳ |
-| PWA manifest installer | ⏳ |
+| PWA manifest ingestion (icon, name from manifest.json) | ⏳ |
 | Live `peak_mem_bytes` from Job Object stats | ⏳ |
 | Benchmark harness (Electron vs Reeve vs Chrome tabs) | ⏳ |
 | macOS target (WKWebView, soft memory limits) | ⏳ |
@@ -304,13 +339,13 @@ The event loop rescans every 3 seconds and attaches any newly spawned renderers 
 
 ## The Benchmark We Owe You
 
-The "80% less RAM" claim will be published with full methodology. The plan:
+The "80% less RAM" claim will be published with full methodology:
 
 1. Cold-start the same five apps (Linear, Notion, Figma, Slack, Spotify) as **Electron apps**, as **Reeve PWAs**, and as **five Chrome tabs**.
-2. Measure peak working set and committed memory per configuration over 10 minutes of light interaction.
+2. Measure peak working set and committed memory per configuration over 10 minutes.
 3. Publish raw numbers and the harness.
 
-Expectation based on the architecture: Reeve will significantly beat Electron, and will be roughly at parity with Chrome tabs — but with per-app memory caps, a capability bridge, and a managed dashboard that Chrome does not offer. The honest comparison is Electron → Reeve. Chrome tabs → Reeve is a different story about control, not just memory.
+Expectation: Reeve will significantly beat Electron, and will be roughly at parity with Chrome tabs — but with per-app memory caps, a capability bridge, and a managed dashboard that Chrome does not offer. The honest comparison is Electron → Reeve.
 
 ---
 
@@ -318,20 +353,19 @@ Expectation based on the architecture: Reeve will significantly beat Electron, a
 
 The bridge is the attack surface. Design principles:
 
-- **Deny by default.** No capability is granted without an explicit catalog entry.
-- **Origin-gated IPC.** A page must be on the app's declared origin (or a subdomain) to invoke the bridge at all. Redirects and injected iframes fail the gate.
-- **Scope every path.** File-system operations canonicalize both sides before comparing. Symlinks and `..` traversal are rejected.
-- **User-mediated grants.** `fs.pick` uses the OS file dialog — the user chooses the file, not the web app.
-- **Job Object isolation.** A runaway or malicious renderer is capped at the kernel level. It cannot exhaust system memory.
-- **Kill on close.** `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` guarantees no orphaned renderers if Reeve crashes.
+- **Deny by default.** No capability without an explicit grant.
+- **Origin-gated IPC.** Pages on the app's declared origin (or subdomain) only.
+- **Scope every path.** Both sides canonicalized; symlinks and `..` rejected.
+- **User-mediated pick.** `fs.pick` uses the OS dialog — the user chooses the file.
+- **Job Object isolation.** Runaway renderers are capped at the kernel level.
+- **Kill on close.** `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` prevents orphaned renderers.
 
-This is not a formal security audit. Before shipping to end users, the bridge should be threat-modeled and externally reviewed — particularly the canonicalization logic, the origin comparison (subdomain matching must handle public-suffix rules), and the IPC body parser.
+Not a formal security audit. Known limitations to address before production:
 
-Known limitations to address before production:
-
-- **Subdomain matching is naive.** `host.ends_with(".app.example")` is safe for exact hosts, but a full implementation must consult the Public Suffix List to avoid `evil.co.uk` matching `.co.uk`.
-- **No rate limiting on the bridge.** A malicious app could spam `fs.pick` to annoy the user with dialogs.
-- **No audit log.** Bridge calls should be logged to `sessions` for post-incident review.
+- **Subdomain matching is naive** — `host.ends_with(".app.example")` is safe for exact hosts, but a full implementation must consult the Public Suffix List to avoid `evil.co.uk` matching `.co.uk`.
+- **No rate limiting on the bridge.** A malicious app could spam `fs.pick` with dialogs.
+- **No audit log.** Bridge calls should be persisted for post-incident review.
+- **WebView2 renderers are in a private job.** Per-process memory limits apply only to processes Reeve can attach; the job-wide cap on the browser process covers the rest.
 
 ---
 
@@ -339,12 +373,12 @@ Known limitations to address before production:
 
 | Symptom | Fix |
 |---|---|
-| `couldn't read migrations/001_init.sql` | Confirm `migrations/001_init.sql` exists at the project root, next to `Cargo.toml` |
-| `no WebviewExtWindows in the root` | Trait is `WebViewExtWindows` — capital V |
-| `no method named 'with_web_context'` | wry 0.52+ renamed it to `WebViewBuilder::new_with_web_context(&mut ctx)` |
-| `ICoreWebView2Environment13` not found | Match `webview2-com` version to whatever `cargo tree -p wry` reports |
-| `ProcessMemoryLimit` / `JobMemoryLimit` field not found | Confirm `windows = "0.58"` and that `Win32_System_JobObjects` feature is enabled |
-| `assign_process` wants `HANDLE` not `u32` | Reeve does not use `win32job`; it calls `OpenProcess` + `AssignProcessToJobObject` directly |
+| `couldn't read migrations/001_init.sql` | Confirm `migrations/001_init.sql` exists at the project root |
+| `ICoreWebView2Environment13` not found | Match `webview2-com` version to what `cargo tree -p wry` reports |
+| Popup flashes and vanishes | Confirm `wry = "0.55"` or later — older versions run the handler off-thread |
+| Site shows "popups blocked" | The URL was denied. Check the `NewWindowRequested` log line and add the host to `OAUTH_HOSTS` or extend `looks_like_oauth` |
+| Renderer attachment logs `Access is denied` | Expected — WebView2 sandboxes renderers; the browser-process cap covers the tree |
+| New seed apps don't appear | Seeding runs every launch via `seed_catalog()`; if an app is missing, `catalog.add_app` may be failing — check the log |
 
 ---
 
@@ -352,12 +386,13 @@ Known limitations to address before production:
 
 Reeve is in early development. The most valuable contributions right now:
 
-1. **Renderer enumeration reliability.** `GetProcessInfos` requires a recent WebView2 Runtime. Test against older builds and report which versions fail — a Toolhelp32 fallback is needed for those machines.
-2. **Dashboard.** The catalog already stores everything the dashboard needs. Build the memory table, permission editor, and kill switch as another WebView sharing the same environment.
+1. **Dashboard.** The catalog stores everything the dashboard needs — build the memory table, permission editor, and kill switch as another WebView sharing the same environment.
+2. **PWA manifest ingestion.** The search bar currently records only the URL. Fetch `manifest.json`, extract name, icons, theme color, and scope.
 3. **Benchmark harness.** A reproducible script for the three-way comparison above.
 4. **Public Suffix List matching** for the origin gate.
+5. **Toolhelp32 fallback** for WebView2 runtimes older than ~2023.
 
-Open an issue before starting non-trivial work so the approach can be discussed.
+Open an issue before starting non-trivial work.
 
 ---
 
