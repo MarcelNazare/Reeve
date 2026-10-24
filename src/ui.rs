@@ -144,24 +144,6 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
 </head>
 <body>
   <div class="header">
-    <div class="brand">
-      <div class="brand-icon">
-        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 45C20 31.1929 31.1929 20 45 20H55C68.8071 20 80 31.1929 80 45C80 58.8071 68.8071 70 55 70H45C31.1929 70 20 58.8071 20 45Z" fill="url(#paint0_linear)"/>
-          <path d="M55 35C68.8071 35 80 46.1929 80 60V70C80 83.8071 68.8071 95 55 95H45C31.1929 95 20 83.8071 20 70V60C20 46.1929 31.1929 35 45 35H55Z" fill="url(#paint1_linear)"/>
-          <path d="M45 45C51.6274 45 57 50.3726 57 57C57 63.6274 51.6274 69 45 69C38.3726 69 33 63.6274 33 57C33 50.3726 38.3726 45 45 45Z" fill="#0a0a0c"/>
-          <defs>
-            <linearGradient id="paint0_linear" x1="20" y1="20" x2="80" y2="70" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#0084ff"/>
-              <stop offset="1" stop-color="#00e5ff"/>
-            </linearGradient>
-            <linearGradient id="paint1_linear" x1="20" y1="35" x2="80" y2="95" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#0084ff"/>
-              <stop offset="1" stop-color="#00e5ff"/>
-            </linearGradient>
-          </defs>
-        </svg>
-      </div>
       <div class="brand-text">
         <h1>Reeve</h1>
         <p>One engine. Many apps. Governed.</p>
