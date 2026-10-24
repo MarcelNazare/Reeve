@@ -6,24 +6,29 @@ use crate::instance::{AppInstance, Lifecycle};
 use anyhow::Result;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::mpsc;
 use tao::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
     window::{Window, WindowBuilder, WindowId},
 };
-use wry::{NewWindowResponse, WebContext, WebView, WebViewBuilder};
+use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2;
+use wry::{NewWindowResponse, WebContext, WebView, WebViewBuilder, WebViewExtWindows};
+
+/// Wrapper to move a COM interface across the mpsc channel.
+pub struct SendIcore(ICoreWebView2);
+unsafe impl Send for SendIcore {}
 
 #[derive(Debug, Clone)]
 pub enum UserEvent {
     Launch(String),
     BridgeResponse { window_id: WindowId, script: String },
-    OpenPopup {
+    CreatePopup {
         parent_window_id: WindowId,
         parent_app_id: String,
-        parent_origin: Option<String>,
         url: String,
+        sender: mpsc::Sender<SendIcore>,
     },
-    ClosePopup(WindowId),
 }
 
 struct AppWindow {
@@ -33,7 +38,7 @@ struct AppWindow {
 }
 
 struct PopupWindow {
-    window: Window,
+    _window: Window,
     _webview: WebView,
     parent_id: WindowId,
 }
@@ -164,57 +169,70 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                 }
             }
 
+            Event::UserEvent(UserEvent::CreatePopup {
+                parent_window_id,
+                parent_app_id,
+                url,
+                sender,
+            }) => {
+                tracing::info!(%url, "creating managed popup for WebView2");
+
+                let popup_window = match WindowBuilder::new()
+                    .with_title(format!("{parent_app_id} — Reeve"))
+                    .with_inner_size(tao::dpi::LogicalSize::new(820.0, 650.0))
+                    .build(event_loop)
+                {
+                    Ok(w) => w,
+                    Err(e) => {
+                        tracing::error!(?e, "failed to build popup window");
+                        return;
+                    }
+                };
+                let popup_window_id = popup_window.id();
+
+                let popup_webview = match WebViewBuilder::new_with_web_context(&mut web_context)
+                    .with_url(&url)
+                    .build(&popup_window)
+                {
+                    Ok(w) => w,
+                    Err(e) => {
+                        tracing::error!(?e, "failed to build popup webview");
+                        return;
+                    }
+                };
+
+                // CoreWebView2() is an unsafe COM call; the returned interface is
+                // valid for as long as the owning WebView is alive, which it is
+                // because we insert popup_webview into popup_windows below.
+                let icore = match unsafe { popup_webview.controller().CoreWebView2() } {
+                    Ok(c) => c,
+                    Err(e) => {
+                        tracing::error!(?e, "failed to get popup ICoreWebView2");
+                        return;
+                    }
+                };
+
+                // Hand the real ICoreWebView2 to WebView2 via NewWindowResponse::Create.
+                if sender.send(SendIcore(icore)).is_err() {
+                    tracing::warn!("popup receiver dropped");
+                    return;
+                }
+
+                popup_windows.insert(
+                    popup_window_id,
+                    PopupWindow {
+                        _window: popup_window,
+                        _webview: popup_webview,
+                        parent_id: parent_window_id,
+                    },
+                );
+            }
+
             Event::UserEvent(UserEvent::BridgeResponse { window_id, script }) => {
                 if let Some(aw) = app_windows.get(&window_id) {
                     if let Err(e) = aw.webview.evaluate_script(&script) {
                         tracing::warn!(?e, "failed to deliver bridge response");
                     }
-                }
-            }
-
-            Event::UserEvent(UserEvent::OpenPopup {
-                parent_window_id,
-                parent_app_id,
-                parent_origin,
-                url,
-            }) => {
-                match classify_popup(&url, parent_origin.as_deref()) {
-                    PopupDisposition::Managed => {
-                        tracing::info!(%url, "spawning managed popup");
-                        match spawn_popup_window(
-                            event_loop,
-                            &mut web_context,
-                            parent_window_id,
-                            parent_app_id.clone(),
-                            url.clone(),
-                            proxy.clone(),
-                        ) {
-                            Ok((window, webview)) => {
-                                let window_id = window.id();
-                                popup_windows.insert(
-                                    window_id,
-                                    PopupWindow {
-                                        window,
-                                        _webview: webview,
-                                        parent_id: parent_window_id,
-                                    },
-                                );
-                            }
-                            Err(e) => tracing::error!(?e, %url, "failed to spawn popup"),
-                        }
-                    }
-                    PopupDisposition::SystemBrowser => {
-                        tracing::info!(%url, "routing external popup to system browser");
-                        if let Err(e) = open::that(&url) {
-                            tracing::warn!(?e, %url, "failed to open system browser");
-                        }
-                    }
-                }
-            }
-
-            Event::UserEvent(UserEvent::ClosePopup(window_id)) => {
-                if popup_windows.remove(&window_id).is_some() {
-                    tracing::info!("popup closed via JS");
                 }
             }
 
@@ -275,7 +293,7 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             if let Some(aw) = app_windows.values().next() {
                 match enumerate_and_attach_renderers(&governor, &aw.webview) {
                     Ok(pids) if !pids.is_empty() => {
-                        tracing::info!(?pids, "renderers attached");
+                        tracing::info!(?pids, "processes attached");
                     }
                     Ok(_) => {}
                     Err(e) => tracing::warn!(?e, "renderer enumeration failed"),
@@ -325,6 +343,8 @@ fn classify_popup(url: &str, parent_origin: Option<&str>) -> PopupDisposition {
         "appleid.apple.com",
         "auth0.com",
         "okta.com",
+        "github.com",
+        "slack.com",
     ];
     for allowed in OAUTH_HOSTS {
         if host == *allowed || host.ends_with(&format!(".{allowed}")) {
@@ -369,21 +389,42 @@ fn spawn_app_window(
     let popup_proxy = proxy.clone();
     let popup_app_id = app.id.clone();
     let popup_parent_origin = expected_host.clone();
-
     let start_url = app.start_url.clone();
 
     let webview = WebViewBuilder::new_with_web_context(web_context)
         .with_url(&start_url)
         .with_new_window_req_handler(move |popup_url, _features| {
-            // IMPORTANT: returning Allow creates a dummy popup in WebView2 that
-            // closes immediately. We must Deny and spawn a real window ourselves.
-            let _ = popup_proxy.send_event(UserEvent::OpenPopup {
-                parent_window_id: window_id,
-                parent_app_id: popup_app_id.clone(),
-                parent_origin: popup_parent_origin.clone(),
-                url: popup_url,
-            });
-            NewWindowResponse::Deny
+            match classify_popup(&popup_url, popup_parent_origin.as_deref()) {
+                PopupDisposition::Managed => {
+                    // Blocking channel: ask the main event loop to create a real
+                    // tao window + wry WebView, then hand us its ICoreWebView2.
+                    let (tx, rx) = mpsc::channel();
+                    let _ = popup_proxy.send_event(UserEvent::CreatePopup {
+                        parent_window_id: window_id,
+                        parent_app_id: popup_app_id.clone(),
+                        url: popup_url,
+                        sender: tx,
+                    });
+
+                    match rx.recv_timeout(std::time::Duration::from_secs(10)) {
+                        Ok(SendIcore(icore)) => {
+                            tracing::info!("handing popup ICoreWebView2 to WebView2");
+                            NewWindowResponse::Create { webview: icore }
+                        }
+                        Err(e) => {
+                            tracing::error!(?e, "popup creation timed out");
+                            NewWindowResponse::Deny
+                        }
+                    }
+                }
+                PopupDisposition::SystemBrowser => {
+                    tracing::info!(%popup_url, "routing external popup to system browser");
+                    if let Err(e) = open::that(&popup_url) {
+                        tracing::warn!(?e, %popup_url, "failed to open system browser");
+                    }
+                    NewWindowResponse::Deny
+                }
+            }
         })
         .with_ipc_handler(move |req| {
             let page_host = req.uri().host();
@@ -408,55 +449,4 @@ fn spawn_app_window(
         .build(&window)?;
 
     Ok((window, webview, instance))
-}
-
-fn spawn_popup_window(
-    event_loop: &EventLoopWindowTarget<UserEvent>,
-    web_context: &mut WebContext,
-    parent_window_id: WindowId,
-    app_id: String,
-    url: String,
-    proxy: EventLoopProxy<UserEvent>,
-) -> Result<(Window, WebView)> {
-    let window = WindowBuilder::new()
-        .with_title(format!("{app_id} — Reeve"))
-        .with_inner_size(tao::dpi::LogicalSize::new(820.0, 650.0))
-        .build(event_loop)?;
-    let window_id = window.id();
-
-    // Popups do not get the capability bridge. They exist for auth flows and
-    // transient UI; native capabilities belong to the parent app.
-    let close_proxy = proxy.clone();
-
-    let webview = WebViewBuilder::new_with_web_context(web_context)
-        .with_url(&url)
-        .with_initialization_script(
-            r#"
-            (function() {
-                const nativeClose = window.close.bind(window);
-                window.close = function() {
-                    try {
-                        window.ipc.postMessage(JSON.stringify({ cmd: 'reeve_popup_close' }));
-                    } catch (e) {}
-                    try { nativeClose(); } catch (e) {}
-                };
-            })();
-            "#,
-        )
-        .with_ipc_handler(move |req| {
-            if let Ok(msg) = serde_json::from_str::<serde_json::Value>(req.body()) {
-                if msg["cmd"] == "reeve_popup_close" {
-                    let _ = close_proxy.send_event(UserEvent::ClosePopup(window_id));
-                }
-            }
-        })
-        .with_new_window_req_handler(|nested_url, _features| {
-            tracing::warn!(%nested_url, "popup tried to open another popup — blocked");
-            NewWindowResponse::Deny
-        })
-        .build(&window)?;
-
-    let _ = parent_window_id; // stored by caller for cleanup
-
-    Ok((window, webview))
 }

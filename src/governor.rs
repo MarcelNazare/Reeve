@@ -56,6 +56,8 @@ pub mod win {
             }
         }
 
+        /// Attaches a single process to the job. Returns Err for *any* failure —
+        /// the caller decides whether that is fatal or just a skip.
         pub fn attach(&self, pid: u32) -> Result<()> {
             unsafe {
                 let process = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid)?;
@@ -67,11 +69,22 @@ pub mod win {
                 let _ = CloseHandle(process);
                 assign_result?;
             }
-
             Ok(())
         }
     }
 
+    /// Enumerate every process attached to the WebView2 environment and try to
+    /// attach it to the Job Object. Per-process failures are logged and
+    /// skipped — the scan never aborts.
+    ///
+    /// Why "best effort" is the correct design:
+    ///   - WebView2 puts renderer processes inside its own sandbox Job Object.
+    ///   - Windows refuses AssignProcessToJobObject for a process already in
+    ///     another job unless that job allows nesting.
+    ///   - WebView2's sandbox does not, so the call returns ERROR_ACCESS_DENIED
+    ///     (0x80070005) for those renderers.
+    ///   - The browser process is *not* in a job, so it attaches cleanly, and
+    ///     its job-wide memory cap covers the renderer tree via nested jobs.
     pub fn enumerate_and_attach_renderers(
         governor: &Governor,
         webview: &WebView,
@@ -92,19 +105,43 @@ pub mod win {
         let mut attached = Vec::new();
 
         for i in 0..count {
-            let info = unsafe { collection.GetValueAtIndex(i)? };
+            let info = match unsafe { collection.GetValueAtIndex(i) } {
+                Ok(info) => info,
+                Err(e) => {
+                    tracing::debug!(?e, index = i, "skipping process info");
+                    continue;
+                }
+            };
 
             let mut pid_i32: i32 = 0;
-            unsafe { info.ProcessId(&mut pid_i32)? };
+            if unsafe { info.ProcessId(&mut pid_i32) }.is_err() {
+                continue;
+            }
             let pid = pid_i32 as u32;
 
             let mut kind = unsafe { core::mem::zeroed::<COREWEBVIEW2_PROCESS_KIND>() };
-            unsafe { info.Kind(&mut kind)? };
+            if unsafe { info.Kind(&mut kind) }.is_err() {
+                continue;
+            }
 
-            if kind == COREWEBVIEW2_PROCESS_KIND_RENDERER {
-                governor.attach(pid)?;
-                attached.push(pid);
-                tracing::info!(pid, "renderer attached to job object");
+            let kind_label: &str = match kind {
+                COREWEBVIEW2_PROCESS_KIND_BROWSER => "browser",
+                COREWEBVIEW2_PROCESS_KIND_RENDERER => "renderer",
+                COREWEBVIEW2_PROCESS_KIND_GPU => "gpu",
+                COREWEBVIEW2_PROCESS_KIND_UTILITY => "utility",
+                _ => "other",
+            };
+
+            match governor.attach(pid) {
+                Ok(()) => {
+                    attached.push(pid);
+                    tracing::info!(pid, kind = kind_label, "process attached to job object");
+                }
+                Err(e) => {
+                    // Expected for renderers in WebView2's sandbox job. Log at
+                    // debug so the console isn't spammed every 3 seconds.
+                    tracing::debug!(pid, kind = kind_label, error = %e, "process not attached");
+                }
             }
         }
 
