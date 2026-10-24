@@ -1,6 +1,7 @@
 #[cfg(windows)]
 pub mod win {
     use anyhow::{anyhow, Result};
+    use serde::Serialize;
     use webview2_com::Microsoft::Web::WebView2::Win32::*;
     use windows::core::Interface;
     use windows::Win32::Foundation::{CloseHandle, HANDLE};
@@ -10,8 +11,12 @@ pub mod win {
         JOB_OBJECT_LIMIT_JOB_MEMORY, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
         JOB_OBJECT_LIMIT_PROCESS_MEMORY,
     };
+    use windows::Win32::System::ProcessStatus::{
+        GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
+    };
     use windows::Win32::System::Threading::{
-        OpenProcess, PROCESS_SET_QUOTA, PROCESS_TERMINATE,
+        OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_QUOTA,
+        PROCESS_TERMINATE,
     };
     use wry::{WebView, WebViewExtWindows};
 
@@ -62,14 +67,97 @@ pub mod win {
                 if process.is_invalid() {
                     return Err(anyhow!("OpenProcess failed for PID {pid}"));
                 }
-
                 let assign_result = AssignProcessToJobObject(self.job, process);
                 let _ = CloseHandle(process);
                 assign_result?;
             }
-
             Ok(())
         }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum ProcessKind {
+        Browser,
+        Renderer,
+        Gpu,
+        Utility,
+        Other,
+    }
+
+    #[derive(Debug, Clone, Serialize)]
+    pub struct ProcessSnapshot {
+        pub pid: u32,
+        pub kind: ProcessKind,
+        pub memory_bytes: Option<u64>,
+    }
+
+    pub fn query_process_memory(pid: u32) -> Option<u64> {
+        unsafe {
+            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+            if handle.is_invalid() {
+                return None;
+            }
+
+            let mut counters = PROCESS_MEMORY_COUNTERS {
+                cb: std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+                ..Default::default()
+            };
+            let result = GetProcessMemoryInfo(handle, &mut counters, counters.cb);
+            let _ = CloseHandle(handle);
+
+            if result.is_err() {
+                return None;
+            }
+            Some(counters.WorkingSetSize as u64)
+        }
+    }
+
+    pub fn snapshot_processes(webview: &WebView) -> Result<Vec<ProcessSnapshot>> {
+        let controller = webview.controller();
+        let core = unsafe { controller.CoreWebView2()? };
+        let core2: ICoreWebView2_2 = core.cast()?;
+        let env = unsafe { core2.Environment()? };
+        let env13: ICoreWebView2Environment13 = env.cast()?;
+        let collection = unsafe { env13.GetProcessInfos()? };
+
+        let mut count: u32 = 0;
+        unsafe { collection.Count(&mut count)? };
+
+        let mut result = Vec::new();
+        for i in 0..count {
+            let info = match unsafe { collection.GetValueAtIndex(i) } {
+                Ok(i) => i,
+                Err(_) => continue,
+            };
+
+            let mut pid_i32: i32 = 0;
+            if unsafe { info.ProcessId(&mut pid_i32) }.is_err() {
+                continue;
+            }
+            let pid = pid_i32 as u32;
+
+            let mut raw_kind = unsafe { core::mem::zeroed::<COREWEBVIEW2_PROCESS_KIND>() };
+            if unsafe { info.Kind(&mut raw_kind) }.is_err() {
+                continue;
+            }
+
+            let kind = match raw_kind {
+                COREWEBVIEW2_PROCESS_KIND_BROWSER => ProcessKind::Browser,
+                COREWEBVIEW2_PROCESS_KIND_RENDERER => ProcessKind::Renderer,
+                COREWEBVIEW2_PROCESS_KIND_GPU => ProcessKind::Gpu,
+                COREWEBVIEW2_PROCESS_KIND_UTILITY => ProcessKind::Utility,
+                _ => ProcessKind::Other,
+            };
+
+            result.push(ProcessSnapshot {
+                pid,
+                kind,
+                memory_bytes: query_process_memory(pid),
+            });
+        }
+
+        Ok(result)
     }
 
     pub fn enumerate_and_attach_renderers(
@@ -78,19 +166,15 @@ pub mod win {
     ) -> Result<Vec<u32>> {
         let controller = webview.controller();
         let core = unsafe { controller.CoreWebView2()? };
-
         let core2: ICoreWebView2_2 = core.cast()?;
         let env = unsafe { core2.Environment()? };
-
         let env13: ICoreWebView2Environment13 = env.cast()?;
 
         let collection = unsafe { env13.GetProcessInfos()? };
-
         let mut count: u32 = 0;
         unsafe { collection.Count(&mut count)? };
 
         let mut attached = Vec::new();
-
         for i in 0..count {
             let info = match unsafe { collection.GetValueAtIndex(i) } {
                 Ok(info) => info,
@@ -137,6 +221,7 @@ pub mod win {
 #[cfg(not(windows))]
 pub mod win {
     use anyhow::Result;
+    use serde::Serialize;
     use wry::WebView;
 
     pub struct Governor;
@@ -148,6 +233,27 @@ pub mod win {
         pub fn attach(&self, _pid: u32) -> Result<()> {
             Ok(())
         }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum ProcessKind {
+        Browser,
+        Renderer,
+        Gpu,
+        Utility,
+        Other,
+    }
+
+    #[derive(Debug, Clone, Serialize)]
+    pub struct ProcessSnapshot {
+        pub pid: u32,
+        pub kind: ProcessKind,
+        pub memory_bytes: Option<u64>,
+    }
+
+    pub fn snapshot_processes(_webview: &WebView) -> Result<Vec<ProcessSnapshot>> {
+        Ok(vec![])
     }
 
     pub fn enumerate_and_attach_renderers(

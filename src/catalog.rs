@@ -73,6 +73,19 @@ impl Catalog {
         Ok(())
     }
 
+    pub fn revoke_permission_scope(
+        &self,
+        app_id: &str,
+        capability: &str,
+        scope: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM permissions WHERE app_id = ?1 AND capability = ?2 AND scope = ?3",
+            params![app_id, capability, scope],
+        )?;
+        Ok(())
+    }
+
     pub fn record_session_start(&self, app_id: &str, pid: u32) -> Result<i64> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
         self.conn.execute(
