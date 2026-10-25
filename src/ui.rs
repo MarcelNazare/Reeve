@@ -140,6 +140,11 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   .app .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; pointer-events: none; }
   .app .url { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; pointer-events: none; }
   
+  /* Context Menu 3-Dots */
+  .menu-btn { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; opacity: 0; transition: opacity 0.2s, background 0.2s; display: flex; }
+  .app:hover .menu-btn { opacity: 1; }
+  .menu-btn:hover { background: var(--border); color: var(--text); }
+
   .empty { color: var(--text-muted); font-size: 13px; padding: 40px 0; text-align: center; display: none; }
 </style>
 </head>
@@ -205,6 +210,7 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
     return '<img class="icon" alt="" src="' + src + '" onerror="this.style.visibility=\'hidden\'">';
   }
 
+  // Right-click handler on the grid
   document.getElementById('grid').addEventListener('contextmenu', (e) => {
     const appEl = e.target.closest('.app');
     if (!appEl) return;
@@ -216,6 +222,18 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
       y: e.screenY
     }));
   });
+
+  // Click handler for the 3 dots
+  function showMenu(e, id) {
+    e.preventDefault();
+    e.stopPropagation(); // Prevents the card's launch click from firing
+    window.ipc.postMessage(JSON.stringify({
+      cmd: 'show_context_menu',
+      app_id: id,
+      x: e.screenX,
+      y: e.screenY
+    }));
+  }
 
   function renderFiltered() {
     var query = document.getElementById('filter-input').value.toLowerCase();
@@ -236,6 +254,9 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
     empty.style.display = 'none';
     grid.innerHTML = filtered.map(function(a) {
       return '<div class="app" data-id="' + a.id + '" onclick="launch(\'' + a.id + '\')">' + 
+        '<button class="menu-btn" onclick="showMenu(event, \'' + a.id + '\')">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>' +
+        '</button>' +
         iconHTML(a) + 
         '<div class="name">' + a.name + '</div>' + 
         '<div class="url">' + a.start_url + '</div></div>';
@@ -492,28 +513,15 @@ fn origin_matches(expected: Option<&str>, actual: Option<&str>) -> bool {
     }
 }
 
-/// Validates that a string is a legal WebView2 profile name.
-/// Rules: ASCII alphanumeric plus `.`, `_`, `-`, space; max 64 chars;
-/// must not start or end with `.` or space.
 fn sanitize_profile_name(app_id: &str) -> Result<String> {
     let name = app_id.trim().to_string();
-    if name.is_empty() {
-        return Err(anyhow!("profile name is empty"));
-    }
-    if name.len() > 64 {
-        return Err(anyhow!("profile name exceeds 64 characters"));
-    }
-    if name.starts_with('.') || name.starts_with(' ')
-        || name.ends_with('.') || name.ends_with(' ')
-    {
+    if name.is_empty() { return Err(anyhow!("profile name is empty")); }
+    if name.len() > 64 { return Err(anyhow!("profile name exceeds 64 characters")); }
+    if name.starts_with('.') || name.starts_with(' ') || name.ends_with('.') || name.ends_with(' ') {
         return Err(anyhow!("profile name cannot start or end with '.' or space"));
     }
-    let valid = name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | ' '));
-    if !valid {
-        return Err(anyhow!("profile name contains invalid characters"));
-    }
+    let valid = name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | ' '));
+    if !valid { return Err(anyhow!("profile name contains invalid characters")); }
     Ok(name)
 }
 
@@ -527,7 +535,7 @@ fn show_native_context_menu(
 ) {
     use windows::Win32::UI::WindowsAndMessaging::*;
 
-    std::thread::spawn(move || unsafe {
+    unsafe {
         let menu = match CreatePopupMenu() {
             Ok(m) => m,
             Err(_) => return,
@@ -538,12 +546,11 @@ fn show_native_context_menu(
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, windows::core::PCWSTR::null());
         let _ = AppendMenuW(menu, MF_STRING, 3, windows::core::w!("Uninstall"));
 
-        // FIX 1: TRACK_POPUP_MENU_FLAGS is a newtype in windows 0.61. Extract `.0`.
         let flags: u32 = (TPM_RETURNCMD | TPM_NONOTIFY).0;
-
-        // FIX 2: HWND is (*mut c_void) in windows 0.61. Cast the isize we captured.
         let hwnd = windows::Win32::Foundation::HWND(hwnd as *mut core::ffi::c_void);
 
+        // REMOVED std::thread::spawn here. TrackPopupMenuEx MUST run on the main thread
+        // to process clicks. It blocks the event loop for the brief duration the menu is open.
         let selected = TrackPopupMenuEx(menu, flags, x, y, hwnd, None);
 
         let _ = DestroyMenu(menu);
@@ -554,7 +561,7 @@ fn show_native_context_menu(
             3 => { let _ = proxy.send_event(UserEvent::RemoveApp(app_id.clone())); }
             _ => {}
         }
-    });
+    }
 }
 
 #[cfg(not(windows))]
@@ -565,7 +572,6 @@ fn show_native_context_menu(
     _hwnd: isize,
     _proxy: EventLoopProxy<UserEvent>,
 ) {
-    // No-op on non-Windows for now
 }
 
 pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor) -> Result<()> {
@@ -585,7 +591,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
 
     let launcher_window = launcher_window_builder.build(&event_loop)?;
 
-    // Capture the launcher's HWND once. Used to anchor the native context menu.
     let launcher_hwnd: isize = match launcher_window.window_handle() {
         Ok(handle) => match handle.as_raw() {
             RawWindowHandle::Win32(w) => w.hwnd.get() as isize,
@@ -1194,8 +1199,6 @@ fn spawn_app_window(
     let start_url = app.start_url.clone();
     let app_id_for_cb = app.id.clone();
 
-    // Validate & apply the profile name. If validation fails, log it and fall back
-    // to the shared profile so the app still launches.
     let profile_name: Option<String> = match sanitize_profile_name(&app.id) {
         Ok(name) => {
             tracing::info!(profile = %name, app_id = %app.id, "webview created with isolated profile");
