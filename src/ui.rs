@@ -20,10 +20,15 @@ use tao::{
 };
 use wry::{NewWindowResponse, PageLoadEvent, WebContext, WebView, WebViewBuilder};
 
+#[cfg(windows)]
+use wry::WebViewBuilderExtWindows;
+
 #[derive(Debug, Clone)]
 pub enum UserEvent {
     Launch(String),
     AddApp { url: String },
+    RemoveApp(String),
+    ClearData(String),
     ManifestIngested { app_id: String, name: Option<String>, icon_path: Option<String> },
     BridgeResponse { window_id: WindowId, script: String },
 
@@ -58,6 +63,35 @@ struct FrontendApp {
     start_url: String,
     icon_data_url: Option<String>,
 }
+
+const REEVE_SDK_JS: &str = r#"
+window.reeve = {
+    _reqs: {},
+    _id: 0,
+    call: function(capability, args) {
+        return new Promise((resolve, reject) => {
+            const id = "req_" + (this._id++);
+            this._reqs[id] = { resolve, reject };
+            window.ipc.postMessage(JSON.stringify({ capability, args, request_id: id }));
+        });
+    },
+    fs: {
+        read: (path) => window.reeve.call("fs.read", { path }),
+        write: (path, content) => window.reeve.call("fs.write", { path, content }),
+        pick: () => window.reeve.call("fs.pick", {}),
+    },
+    notify: (title, body) => window.reeve.call("notify", { title, body }),
+};
+
+window.addEventListener("reeve-response", (e) => {
+    const req = window.reeve._reqs[e.detail.request_id];
+    if (req) {
+        if (e.detail.ok) req.resolve(e.detail.data);
+        else req.reject(new Error(e.detail.error));
+        delete window.reeve._reqs[e.detail.request_id];
+    }
+});
+"#;
 
 const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
 <html>
@@ -98,12 +132,22 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   .notice.error { color: #ff453a; }
   
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
-  .app { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: flex-start; position: relative; overflow: hidden; }
+  .app { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: flex-start; position: relative; overflow: visible; }
   .app:hover { background: #1a1a20; border-color: var(--border-hover); transform: translateY(-2px); }
   .app .icon { width: 40px; height: 40px; margin-bottom: 16px; border-radius: 10px; display: block; background: #25252b; object-fit: contain; }
   .app .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
   .app .url { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
   
+  .menu-btn { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; opacity: 0; transition: opacity 0.2s, background 0.2s; display: flex; }
+  .app:hover .menu-btn { opacity: 1; }
+  .menu-btn:hover { background: var(--border); color: var(--text); }
+  .dropdown { position: absolute; top: 36px; right: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: none; flex-direction: column; z-index: 100; min-width: 160px; }
+  .dropdown.show { display: flex; }
+  .dropdown button { background: transparent; border: none; color: var(--text); text-align: left; padding: 10px 16px; font-size: 13px; font-family: inherit; cursor: pointer; }
+  .dropdown button:hover { background: var(--border); }
+  .dropdown button.danger { color: #ff453a; }
+  .dropdown button.danger:hover { background: rgba(255, 69, 58, 0.1); }
+
   .empty { color: var(--text-muted); font-size: 13px; padding: 40px 0; text-align: center; display: none; }
 </style>
 </head>
@@ -136,6 +180,8 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
 
   function launch(id) { window.ipc.postMessage(JSON.stringify({cmd:'launch', app_id:id})); }
   function openDashboard() { window.ipc.postMessage(JSON.stringify({cmd:'open_dashboard'})); }
+  function removeApp(id) { if(confirm("Uninstall this app?")) window.ipc.postMessage(JSON.stringify({cmd:'remove_app', app_id:id})); }
+  function clearData(id) { if(confirm("Clear local storage and caches for this app? Cookies are shared across apps.")) window.ipc.postMessage(JSON.stringify({cmd:'clear_data', app_id:id})); }
   
   function addApp(e) {
     e.preventDefault();
@@ -169,11 +215,20 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
     return '<img class="icon" alt="" src="' + src + '" onerror="this.style.visibility=\'hidden\'">';
   }
 
+  function toggleMenu(e, id) {
+    e.stopPropagation();
+    document.querySelectorAll('.dropdown').forEach(el => el.classList.remove('show'));
+    document.getElementById('menu-' + id).classList.toggle('show');
+  }
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown').forEach(el => el.classList.remove('show'));
+  });
+
   function renderFiltered() {
     var query = document.getElementById('filter-input').value.toLowerCase();
     var filtered = window.__allApps.filter(function(app) {
-      return app.name.toLowerCase().includes(query) || 
-             app.start_url.toLowerCase().includes(query);
+      return app.name.toLowerCase().includes(query) || app.start_url.toLowerCase().includes(query);
     });
 
     var grid = document.getElementById('grid');
@@ -189,6 +244,12 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
     empty.style.display = 'none';
     grid.innerHTML = filtered.map(function(a) {
       return '<div class="app" onclick="launch(\'' + a.id + '\')">' + 
+        '<button class="menu-btn" onclick="toggleMenu(event, \'' + a.id + '\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>' +
+        '<div class="dropdown" id="menu-' + a.id + '">' +
+          '<button onclick="launch(\'' + a.id + '\')">Open</button>' +
+          '<button onclick="clearData(\'' + a.id + '\')">Clear Data</button>' +
+          '<button class="danger" onclick="removeApp(\'' + a.id + '\')">Uninstall</button>' +
+        '</div>' +
         iconHTML(a) + 
         '<div class="name">' + a.name + '</div>' + 
         '<div class="url">' + a.start_url + '</div></div>';
@@ -201,7 +262,6 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   };
   
   window.__reeve_notice = notice;
-
   document.getElementById('filter-input').addEventListener('input', renderFiltered);
 </script>
 </body>
@@ -402,6 +462,54 @@ fn build_launcher_apps(catalog: &Catalog) -> Vec<FrontendApp> {
     }).collect()
 }
 
+fn load_window_icon(app_icon_path: Option<&str>) -> Option<tao::window::Icon> {
+    if let Some(path_str) = app_icon_path {
+        let path = std::path::Path::new(path_str);
+        if path.exists() {
+            match image::open(path) {
+                Ok(img) => {
+                    let rgba = img.to_rgba8();
+                    let (width, height) = rgba.dimensions();
+                    if let Ok(icon) = tao::window::Icon::from_rgba(rgba.into_raw(), width, height) {
+                        return Some(icon);
+                    }
+                }
+                Err(e) => tracing::warn!("Failed to decode app icon at {}: {}", path_str, e),
+            }
+        }
+    }
+
+    if let Ok(img) = image::load_from_memory(include_bytes!("../assets/reeve.ico")) {
+        let rgba = img.to_rgba8();
+        let (width, height) = rgba.dimensions();
+        if let Ok(icon) = tao::window::Icon::from_rgba(rgba.into_raw(), width, height) {
+            return Some(icon);
+        }
+    }
+
+    None
+}
+
+/// PSL-aware origin match. Returns true if `actual` is `expected` or a subdomain
+/// of the same eTLD+1 as `expected`. Prevents `evil.co.uk` from matching `.co.uk`.
+fn origin_matches(expected: Option<&str>, actual: Option<&str>) -> bool {
+    let (Some(expected), Some(actual)) = (expected, actual) else { return false; };
+    let expected = expected.trim_end_matches('.').to_lowercase();
+    let actual = actual.trim_end_matches('.').to_lowercase();
+    if expected.is_empty() { return false; }
+
+    // Exact or subdomain match
+    if actual == expected || actual.ends_with(&format!(".{expected}")) {
+        return true;
+    }
+
+    // eTLD+1 match (e.g. notion.so vs app.notion.com)
+    match (psl::domain_str(&expected), psl::domain_str(&actual)) {
+        (Some(p), Some(a)) => p == a,
+        _ => false,
+    }
+}
+
 pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor) -> Result<()> {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let proxy = event_loop.create_proxy();
@@ -409,15 +517,21 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
     let frontend_apps = build_launcher_apps(&catalog);
     let apps_json = serde_json::to_string(&frontend_apps)?;
 
-    let launcher_window = WindowBuilder::new()
+    let mut launcher_window_builder = WindowBuilder::new()
         .with_title("Reeve")
-        .with_inner_size(tao::dpi::LogicalSize::new(800.0, 600.0))
-        .build(&event_loop)?;
+        .with_inner_size(tao::dpi::LogicalSize::new(800.0, 600.0));
+
+    if let Some(icon) = load_window_icon(None) {
+        launcher_window_builder = launcher_window_builder.with_window_icon(Some(icon));
+    }
+
+    let launcher_window = launcher_window_builder.build(&event_loop)?;
 
     let mut web_context = WebContext::new(Some(env.data_dir.clone()));
 
     let launcher_webview = WebViewBuilder::new_with_web_context(&mut web_context)
         .with_html(LAUNCHER_HTML)
+        .with_additional_browser_args("--disable-features=CalculateNativeWinOcclusion")
         .with_ipc_handler({
             let proxy = proxy.clone();
             move |req| {
@@ -425,6 +539,8 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                 match msg["cmd"].as_str() {
                     Some("launch") => { if let Some(app_id) = msg["app_id"].as_str() { let _ = proxy.send_event(UserEvent::Launch(app_id.to_string())); } }
                     Some("add_app") => { if let Some(url) = msg["url"].as_str() { let _ = proxy.send_event(UserEvent::AddApp { url: url.to_string() }); } }
+                    Some("remove_app") => { if let Some(app_id) = msg["app_id"].as_str() { let _ = proxy.send_event(UserEvent::RemoveApp(app_id.to_string())); } }
+                    Some("clear_data") => { if let Some(app_id) = msg["app_id"].as_str() { let _ = proxy.send_event(UserEvent::ClearData(app_id.to_string())); } }
                     Some("open_dashboard") => { let _ = proxy.send_event(UserEvent::OpenDashboard); }
                     _ => {}
                 }
@@ -443,7 +559,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
     let catalog = Rc::new(catalog);
     let data_dir = env.data_dir.clone();
 
-    // Background thread: Fetch missing icons for seeded apps
     {
         let data_clone = data_dir.clone();
         let proxy_clone = proxy.clone();
@@ -549,6 +664,57 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                 }
             }
 
+            Event::UserEvent(UserEvent::RemoveApp(app_id)) => {
+                let _ = catalog.delete_app(&app_id);
+                if let Some(aw) = app_windows.iter().find(|(_, aw)| aw.instance.app.id == app_id).map(|(id, _)| *id) {
+                    app_windows.remove(&aw);
+                }
+                let frontend_apps = build_launcher_apps(&catalog);
+                if let Ok(json) = serde_json::to_string(&frontend_apps) {
+                    if let Some(wv) = launcher_webview_opt.as_ref() {
+                        let _ = wv.evaluate_script(&format!("window.__reeve_render({json})"));
+                    }
+                }
+            }
+
+            Event::UserEvent(UserEvent::ClearData(app_id)) => {
+                let target = app_windows.iter().find(|(_, aw)| aw.instance.app.id == app_id).map(|(id, _)| *id);
+                if let Some(window_id) = target {
+                    if let Some(aw) = app_windows.get(&window_id) {
+                        let js = r#"
+                            (async () => {
+                                try {
+                                    localStorage.clear();
+                                    sessionStorage.clear();
+                                    if (window.indexedDB && indexedDB.databases) {
+                                        const dbs = await indexedDB.databases();
+                                        for (const db of dbs) {
+                                            if (db.name) indexedDB.deleteDatabase(db.name);
+                                        }
+                                    }
+                                    if (window.caches) {
+                                        const keys = await caches.keys();
+                                        for (const k of keys) await caches.delete(k);
+                                    }
+                                    console.log("Reeve: cleared app data");
+                                } catch (e) { console.error("Reeve: clear data failed", e); }
+                                setTimeout(() => location.reload(), 100);
+                            })();
+                        "#;
+                        if let Err(e) = aw.webview.evaluate_script(js) {
+                            tracing::warn!(?e, %app_id, "clear data script failed");
+                            push_notice(&launcher_webview_opt, "Failed to clear data", true);
+                        } else {
+                            tracing::info!(%app_id, "cleared app data via JS");
+                            push_notice(&launcher_webview_opt, "App data cleared", false);
+                        }
+                    }
+                } else {
+                    tracing::info!(%app_id, "clear data skipped — app not running");
+                    push_notice(&launcher_webview_opt, "Open the app first to clear its data", true);
+                }
+            }
+
             Event::UserEvent(UserEvent::ManifestIngested { app_id, name, icon_path }) => {
                 let mut updated = false;
                 if let Some(n) = name {
@@ -593,12 +759,10 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
 
             Event::UserEvent(UserEvent::MemoryPollResult(usage)) => {
                 memory_query_in_flight = false;
-
                 let mut by_app: HashMap<String, u64> = HashMap::new();
                 for u in &usage {
                     *by_app.entry(u.app_id.clone()).or_insert(0) += u.memory_bytes;
                 }
-
                 for aw in app_windows.values_mut() {
                     if let Some(&mem) = by_app.get(&aw.instance.app.id) {
                         if mem > aw.peak_memory {
@@ -606,7 +770,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                         }
                     }
                 }
-
                 if let Some(d) = &mut dashboard {
                     d.memory_cache = by_app;
                     push_dashboard(d, &catalog, &app_windows, &governor);
@@ -619,18 +782,7 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                     if let Some(mut aw) = app_windows.remove(&window_id) {
                         aw.instance.transition(Lifecycle::Killed);
                         if aw.instance.session_id >= 0 {
-                            if aw.peak_memory > 0 {
-                                let _ = catalog.update_session_peak(aw.instance.session_id, aw.peak_memory);
-                            }
-                            if let Some(stats) = query_job_stats(&governor) {
-                                tracing::info!(
-                                    session_id = aw.instance.session_id,
-                                    app_peak = aw.peak_memory,
-                                    job_peak = stats.peak_job_memory,
-                                    job_active = stats.active_processes,
-                                    "session killed (peak cross-check)"
-                                );
-                            }
+                            if aw.peak_memory > 0 { let _ = catalog.update_session_peak(aw.instance.session_id, aw.peak_memory); }
                             let _ = catalog.end_session(aw.instance.session_id);
                         }
                         tracing::info!(%app_id, "killed via dashboard");
@@ -682,15 +834,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                     if aw.instance.session_id >= 0 {
                         if aw.peak_memory > 0 {
                             let _ = catalog.update_session_peak(aw.instance.session_id, aw.peak_memory);
-                        }
-                        if let Some(stats) = query_job_stats(&governor) {
-                            tracing::info!(
-                                session_id = aw.instance.session_id,
-                                app_peak = aw.peak_memory,
-                                job_peak = stats.peak_job_memory,
-                                job_active = stats.active_processes,
-                                "session closed (peak cross-check)"
-                            );
                         }
                         let _ = catalog.end_session(aw.instance.session_id);
                     }
@@ -764,6 +907,7 @@ fn spawn_dashboard_window(
 
     let webview = WebViewBuilder::new_with_web_context(web_context)
         .with_html(DASHBOARD_HTML)
+        .with_additional_browser_args("--disable-features=CalculateNativeWinOcclusion")
         .with_ipc_handler(move |req| {
             let Ok(msg) = serde_json::from_str::<serde_json::Value>(req.body()) else { return; };
             match msg["cmd"].as_str() {
@@ -900,11 +1044,11 @@ fn classify_popup(url: &str, parent_origin: Option<&str>) -> PopupDisposition {
     if scheme == "about" || scheme == "blob" || scheme == "data" { return PopupDisposition::Managed; }
     if scheme != "https" && scheme != "http" { return PopupDisposition::SystemBrowser; }
     let host = match parsed.host_str() { Some(h) => h.trim_end_matches('.').to_lowercase(), None => return PopupDisposition::SystemBrowser };
-    if let Some(expected) = parent_origin {
-        let expected = expected.trim_end_matches('.').to_lowercase();
-        if !expected.is_empty() && (host == expected || host.ends_with(&format!(".{expected}"))) { return PopupDisposition::Managed; }
-        if same_brand_domain(&host, &expected) { return PopupDisposition::Managed; }
+    
+    if origin_matches(parent_origin, Some(&host)) {
+        return PopupDisposition::Managed;
     }
+    
     const OAUTH_HOSTS: &[&str] = &[
         "accounts.google.com", "ogs.google.com", "apis.google.com", "login.microsoftonline.com", "login.live.com", "login.windows.net",
         "microsoftonline.com", "office.com", "appleid.apple.com", "idmsa.apple.com", "auth0.com", "okta.com",
@@ -914,12 +1058,6 @@ fn classify_popup(url: &str, parent_origin: Option<&str>) -> PopupDisposition {
     for allowed in OAUTH_HOSTS { if host == *allowed || host.ends_with(&format!(".{allowed}")) { return PopupDisposition::Managed; } }
     if looks_like_oauth(&parsed) { return PopupDisposition::Managed; }
     PopupDisposition::SystemBrowser
-}
-
-fn same_brand_domain(host: &str, parent: &str) -> bool {
-    let h = host.split('.').rev().nth(1).unwrap_or("").to_lowercase();
-    let p = parent.split('.').rev().nth(1).unwrap_or("").to_lowercase();
-    !h.is_empty() && !p.is_empty() && h != "co" && h != "com" && h == p
 }
 
 fn looks_like_oauth(url: &url::Url) -> bool {
@@ -944,10 +1082,15 @@ fn spawn_app_window(
     proxy: EventLoopProxy<UserEvent>,
     catalog: Rc<Catalog>,
 ) -> Result<(Window, WebView, AppInstance, Instant)> {
-    let window = WindowBuilder::new()
+    let mut window_builder = WindowBuilder::new()
         .with_title(app.name.clone())
-        .with_inner_size(tao::dpi::LogicalSize::new(1100.0, 750.0))
-        .build(event_loop)?;
+        .with_inner_size(tao::dpi::LogicalSize::new(1100.0, 750.0));
+
+    if let Some(icon) = load_window_icon(app.icon_path.as_deref()) {
+        window_builder = window_builder.with_window_icon(Some(icon));
+    }
+
+    let window = window_builder.build(event_loop)?;
     let window_id = window.id();
 
     let mut permissions: HashMap<String, Vec<String>> = HashMap::new();
@@ -969,6 +1112,8 @@ fn spawn_app_window(
 
     let webview = WebViewBuilder::new_with_web_context(web_context)
         .with_url(&start_url)
+        .with_additional_browser_args("--disable-features=CalculateNativeWinOcclusion")
+        .with_initialization_script(REEVE_SDK_JS)
         .with_on_page_load_handler(move |event, _url| {
             if matches!(event, PageLoadEvent::Finished) {
                 if std::env::var("REEVE_BENCH_AUTO_LAUNCH").is_ok() {
@@ -987,11 +1132,9 @@ fn spawn_app_window(
         })
         .with_ipc_handler(move |req| {
             let page_host = req.uri().host();
-            let origin_ok = match (&bridge_host, page_host) {
-                (Some(expected), Some(host)) => host == expected || host.ends_with(&format!(".{expected}")),
-                _ => false,
-            };
-            if !origin_ok { return; }
+            if !origin_matches(bridge_host.as_deref(), page_host) {
+                return;
+            }
             let response_json = bridge.handle(req.body());
             let script = format!("window.dispatchEvent(new CustomEvent('reeve-response', {{ detail: {response_json} }}));");
             let _ = bridge_proxy.send_event(UserEvent::BridgeResponse { window_id, script });

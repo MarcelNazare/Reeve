@@ -2,6 +2,8 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Deserialize)]
 pub struct BridgeRequest {
@@ -26,14 +28,32 @@ pub struct BridgeResponse {
 pub struct Bridge {
     app_id: String,
     permissions: HashMap<String, Vec<String>>,
+    last_request_ms: AtomicU64,
 }
 
 impl Bridge {
     pub fn new(app_id: String, permissions: HashMap<String, Vec<String>>) -> Self {
-        Self { app_id, permissions }
+        Self { 
+            app_id, 
+            permissions, 
+            last_request_ms: AtomicU64::new(0) 
+        }
     }
 
     pub fn handle(&self, body: &str) -> String {
+        // Rate Limiting
+        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+        let last = self.last_request_ms.load(Ordering::Relaxed);
+        if now_ms - last < 500 {
+            return serde_json::to_string(&BridgeResponse {
+                ok: false,
+                data: None,
+                error: Some("Rate limit exceeded. Please wait 500ms between native calls.".into()),
+                request_id: None,
+            }).unwrap_or_default();
+        }
+        self.last_request_ms.store(now_ms, Ordering::Relaxed);
+
         let req: BridgeRequest = match serde_json::from_str(body) {
             Ok(r) => r,
             Err(e) => {
@@ -42,29 +62,17 @@ impl Bridge {
                     data: None,
                     error: Some(format!("invalid request: {e}")),
                     request_id: None,
-                })
-                .unwrap_or_else(|_| r#"{"ok":false,"error":"serialization failure"}"#.into());
+                }).unwrap_or_else(|_| r#"{"ok":false,"error":"serialization failure"}"#.into());
             }
         };
 
         let request_id = req.request_id.clone();
         let response = match self.dispatch(&req) {
-            Ok(data) => BridgeResponse {
-                ok: true,
-                data: Some(data),
-                error: None,
-                request_id,
-            },
-            Err(e) => BridgeResponse {
-                ok: false,
-                data: None,
-                error: Some(e.to_string()),
-                request_id,
-            },
+            Ok(data) => BridgeResponse { ok: true, data: Some(data), error: None, request_id },
+            Err(e) => BridgeResponse { ok: false, data: None, error: Some(e.to_string()), request_id },
         };
 
-        serde_json::to_string(&response)
-            .unwrap_or_else(|_| r#"{"ok":false,"error":"serialization failure"}"#.into())
+        serde_json::to_string(&response).unwrap_or_else(|_| r#"{"ok":false,"error":"serialization failure"}"#.into())
     }
 
     fn dispatch(&self, req: &BridgeRequest) -> Result<serde_json::Value> {
@@ -88,21 +96,15 @@ impl Bridge {
     }
 
     fn fs_read(&self, args: &serde_json::Value) -> Result<serde_json::Value> {
-        let path = args["path"]
-            .as_str()
-            .ok_or_else(|| anyhow!("fs.read requires a 'path' argument"))?;
+        let path = args["path"].as_str().ok_or_else(|| anyhow!("fs.read requires a 'path' argument"))?;
         self.require_capability("fs.read", Some(path))?;
         let content = std::fs::read_to_string(path)?;
         Ok(serde_json::json!({ "content": content }))
     }
 
     fn fs_write(&self, args: &serde_json::Value) -> Result<serde_json::Value> {
-        let path = args["path"]
-            .as_str()
-            .ok_or_else(|| anyhow!("fs.write requires a 'path' argument"))?;
-        let content = args["content"]
-            .as_str()
-            .ok_or_else(|| anyhow!("fs.write requires a 'content' argument"))?;
+        let path = args["path"].as_str().ok_or_else(|| anyhow!("fs.write requires a 'path' argument"))?;
+        let content = args["content"].as_str().ok_or_else(|| anyhow!("fs.write requires a 'content' argument"))?;
         self.require_capability("fs.write", Some(path))?;
         std::fs::write(path, content)?;
         Ok(serde_json::json!({ "written": path }))
@@ -112,40 +114,26 @@ impl Bridge {
         self.require_capability("notify", None)?;
         let title = args["title"].as_str().unwrap_or("Reeve");
         let body = args["body"].as_str().unwrap_or("");
-        notify_rust::Notification::new()
-            .summary(title)
-            .body(body)
-            .show()?;
+        notify_rust::Notification::new().summary(title).body(body).show()?;
         Ok(serde_json::json!({ "shown": true }))
     }
 
     fn require_capability(&self, capability: &str, path: Option<&str>) -> Result<()> {
         let scopes = self.permissions.get(capability).ok_or_else(|| {
-            anyhow!(
-                "capability '{capability}' is not granted to '{}'",
-                self.app_id
-            )
+            anyhow!("capability '{capability}' is not granted to '{}'", self.app_id)
         })?;
 
         if let Some(p) = path {
             let requested = std::fs::canonicalize(p).unwrap_or_else(|_| PathBuf::from(p));
             let allowed = scopes.iter().any(|scope| {
-                if scope.is_empty() {
-                    return false;
-                }
-                let scope_path =
-                    std::fs::canonicalize(scope).unwrap_or_else(|_| PathBuf::from(scope));
+                if scope.is_empty() { return false; }
+                let scope_path = std::fs::canonicalize(scope).unwrap_or_else(|_| PathBuf::from(scope));
                 requested.starts_with(&scope_path)
             });
             if !allowed {
-                return Err(anyhow!(
-                    "path '{}' is outside the granted scope for '{}'",
-                    p,
-                    capability
-                ));
+                return Err(anyhow!("path '{}' is outside the granted scope for '{}'", p, capability));
             }
         }
-
         Ok(())
     }
 }

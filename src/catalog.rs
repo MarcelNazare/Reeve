@@ -22,8 +22,6 @@ impl Catalog {
         conn.execute_batch(include_str!("../migrations/001_init.sql"))?;
         let _ = conn.execute("ALTER TABLE apps ADD COLUMN icon_path TEXT", []);
         
-        // Clean up any existing duplicates by keeping the oldest row for each start_url.
-        // We must manually clean up children tables first to avoid FK constraint failures.
         let duplicates: Vec<String> = {
             let mut stmt = conn.prepare("SELECT id FROM apps WHERE rowid NOT IN (SELECT min(rowid) FROM apps GROUP BY start_url)")?;
             let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
@@ -40,15 +38,13 @@ impl Catalog {
     }
 
     pub fn add_app(&self, id: &str, name: &str, start_url: &str) -> Result<()> {
-        // Prevent duplicates by checking if the start_url already exists
         let mut stmt = self.conn.prepare("SELECT id FROM apps WHERE start_url = ?1")?;
         let mut rows = stmt.query(params![start_url])?;
         if let Some(row) = rows.next()? {
             let existing_id: String = row.get(0)?;
             if existing_id == id {
-                return Ok(()); // Already exists with the exact requested id
+                return Ok(()); 
             }
-            // A different id exists for this URL. Delete it so seed_catalog can insert with the expected id.
             let _ = self.conn.execute("DELETE FROM permissions WHERE app_id = ?1", params![existing_id]);
             let _ = self.conn.execute("DELETE FROM sessions WHERE app_id = ?1", params![existing_id]);
             let _ = self.conn.execute("DELETE FROM apps WHERE id = ?1", params![existing_id]);
@@ -60,6 +56,13 @@ impl Catalog {
              VALUES (?1, ?2, ?3, ?4)",
             params![id, name, start_url, now],
         )?;
+        Ok(())
+    }
+
+    pub fn delete_app(&self, app_id: &str) -> Result<()> {
+        let _ = self.conn.execute("DELETE FROM permissions WHERE app_id = ?1", params![app_id]);
+        let _ = self.conn.execute("DELETE FROM sessions WHERE app_id = ?1", params![app_id]);
+        let _ = self.conn.execute("DELETE FROM apps WHERE id = ?1", params![app_id]);
         Ok(())
     }
 
@@ -108,15 +111,6 @@ impl Catalog {
             "INSERT OR IGNORE INTO permissions (app_id, capability, scope, granted_at)
              VALUES (?1, ?2, ?3, ?4)",
             params![app_id, capability, scope, now],
-        )?;
-        Ok(())
-    }
-
-    #[allow(dead_code)]
-    pub fn revoke_permission(&self, app_id: &str, capability: &str) -> Result<()> {
-        self.conn.execute(
-            "DELETE FROM permissions WHERE app_id = ?1 AND capability = ?2",
-            params![app_id, capability],
         )?;
         Ok(())
     }
