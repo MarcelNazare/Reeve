@@ -2,9 +2,9 @@
 
 **One engine. Many apps. Governed.**
 
-![Reeve Launcher](assets/reeve-product-snapshot.png)
-
 Reeve is a native PWA launcher for Windows. It replaces heavyweight Electron bundles and Chromium-per-app patterns with a single shared WebView2 runtime, kernel-enforced memory caps, and a capability-gated bridge that gives web apps native superpowers without sacrificing the sandbox.
+
+![Reeve Launcher](assets/reeve-product-snapshot.png)
 
 ---
 
