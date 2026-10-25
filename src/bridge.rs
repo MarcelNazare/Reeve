@@ -41,7 +41,6 @@ impl Bridge {
     }
 
     pub fn handle(&self, body: &str) -> String {
-        // Rate Limiting
         let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
         let last = self.last_request_ms.load(Ordering::Relaxed);
         if now_ms - last < 500 {

@@ -9,6 +9,7 @@ use crate::instance::{AppInstance, Lifecycle};
 use crate::manifest;
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine as _};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -29,6 +30,7 @@ pub enum UserEvent {
     AddApp { url: String },
     RemoveApp(String),
     ClearData(String),
+    ShowNativeMenu { app_id: String, x: i32, y: i32, hwnd: isize },
     ManifestIngested { app_id: String, name: Option<String>, icon_path: Option<String> },
     BridgeResponse { window_id: WindowId, script: String },
 
@@ -132,22 +134,12 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   .notice.error { color: #ff453a; }
   
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
-  .app { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: flex-start; position: relative; overflow: visible; }
+  .app { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: flex-start; position: relative; overflow: visible; user-select: none; }
   .app:hover { background: #1a1a20; border-color: var(--border-hover); transform: translateY(-2px); }
-  .app .icon { width: 40px; height: 40px; margin-bottom: 16px; border-radius: 10px; display: block; background: #25252b; object-fit: contain; }
-  .app .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-  .app .url { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+  .app .icon { width: 40px; height: 40px; margin-bottom: 16px; border-radius: 10px; display: block; background: #25252b; object-fit: contain; pointer-events: none; }
+  .app .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; pointer-events: none; }
+  .app .url { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; pointer-events: none; }
   
-  .menu-btn { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; opacity: 0; transition: opacity 0.2s, background 0.2s; display: flex; }
-  .app:hover .menu-btn { opacity: 1; }
-  .menu-btn:hover { background: var(--border); color: var(--text); }
-  .dropdown { position: absolute; top: 36px; right: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: none; flex-direction: column; z-index: 100; min-width: 160px; }
-  .dropdown.show { display: flex; }
-  .dropdown button { background: transparent; border: none; color: var(--text); text-align: left; padding: 10px 16px; font-size: 13px; font-family: inherit; cursor: pointer; }
-  .dropdown button:hover { background: var(--border); }
-  .dropdown button.danger { color: #ff453a; }
-  .dropdown button.danger:hover { background: rgba(255, 69, 58, 0.1); }
-
   .empty { color: var(--text-muted); font-size: 13px; padding: 40px 0; text-align: center; display: none; }
 </style>
 </head>
@@ -180,8 +172,6 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
 
   function launch(id) { window.ipc.postMessage(JSON.stringify({cmd:'launch', app_id:id})); }
   function openDashboard() { window.ipc.postMessage(JSON.stringify({cmd:'open_dashboard'})); }
-  function removeApp(id) { if(confirm("Uninstall this app?")) window.ipc.postMessage(JSON.stringify({cmd:'remove_app', app_id:id})); }
-  function clearData(id) { if(confirm("Clear local storage and caches for this app? Cookies are shared across apps.")) window.ipc.postMessage(JSON.stringify({cmd:'clear_data', app_id:id})); }
   
   function addApp(e) {
     e.preventDefault();
@@ -215,14 +205,16 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
     return '<img class="icon" alt="" src="' + src + '" onerror="this.style.visibility=\'hidden\'">';
   }
 
-  function toggleMenu(e, id) {
-    e.stopPropagation();
-    document.querySelectorAll('.dropdown').forEach(el => el.classList.remove('show'));
-    document.getElementById('menu-' + id).classList.toggle('show');
-  }
-
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.dropdown').forEach(el => el.classList.remove('show'));
+  document.getElementById('grid').addEventListener('contextmenu', (e) => {
+    const appEl = e.target.closest('.app');
+    if (!appEl) return;
+    e.preventDefault();
+    window.ipc.postMessage(JSON.stringify({
+      cmd: 'show_context_menu',
+      app_id: appEl.dataset.id,
+      x: e.screenX,
+      y: e.screenY
+    }));
   });
 
   function renderFiltered() {
@@ -243,13 +235,7 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
 
     empty.style.display = 'none';
     grid.innerHTML = filtered.map(function(a) {
-      return '<div class="app" onclick="launch(\'' + a.id + '\')">' + 
-        '<button class="menu-btn" onclick="toggleMenu(event, \'' + a.id + '\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg></button>' +
-        '<div class="dropdown" id="menu-' + a.id + '">' +
-          '<button onclick="launch(\'' + a.id + '\')">Open</button>' +
-          '<button onclick="clearData(\'' + a.id + '\')">Clear Data</button>' +
-          '<button class="danger" onclick="removeApp(\'' + a.id + '\')">Uninstall</button>' +
-        '</div>' +
+      return '<div class="app" data-id="' + a.id + '" onclick="launch(\'' + a.id + '\')">' + 
         iconHTML(a) + 
         '<div class="name">' + a.name + '</div>' + 
         '<div class="url">' + a.start_url + '</div></div>';
@@ -490,24 +476,96 @@ fn load_window_icon(app_icon_path: Option<&str>) -> Option<tao::window::Icon> {
     None
 }
 
-/// PSL-aware origin match. Returns true if `actual` is `expected` or a subdomain
-/// of the same eTLD+1 as `expected`. Prevents `evil.co.uk` from matching `.co.uk`.
 fn origin_matches(expected: Option<&str>, actual: Option<&str>) -> bool {
     let (Some(expected), Some(actual)) = (expected, actual) else { return false; };
     let expected = expected.trim_end_matches('.').to_lowercase();
     let actual = actual.trim_end_matches('.').to_lowercase();
     if expected.is_empty() { return false; }
 
-    // Exact or subdomain match
     if actual == expected || actual.ends_with(&format!(".{expected}")) {
         return true;
     }
 
-    // eTLD+1 match (e.g. notion.so vs app.notion.com)
     match (psl::domain_str(&expected), psl::domain_str(&actual)) {
         (Some(p), Some(a)) => p == a,
         _ => false,
     }
+}
+
+/// Validates that a string is a legal WebView2 profile name.
+/// Rules: ASCII alphanumeric plus `.`, `_`, `-`, space; max 64 chars;
+/// must not start or end with `.` or space.
+fn sanitize_profile_name(app_id: &str) -> Result<String> {
+    let name = app_id.trim().to_string();
+    if name.is_empty() {
+        return Err(anyhow!("profile name is empty"));
+    }
+    if name.len() > 64 {
+        return Err(anyhow!("profile name exceeds 64 characters"));
+    }
+    if name.starts_with('.') || name.starts_with(' ')
+        || name.ends_with('.') || name.ends_with(' ')
+    {
+        return Err(anyhow!("profile name cannot start or end with '.' or space"));
+    }
+    let valid = name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | ' '));
+    if !valid {
+        return Err(anyhow!("profile name contains invalid characters"));
+    }
+    Ok(name)
+}
+
+#[cfg(windows)]
+fn show_native_context_menu(
+    app_id: String,
+    x: i32,
+    y: i32,
+    hwnd: isize,
+    proxy: EventLoopProxy<UserEvent>,
+) {
+    use windows::Win32::UI::WindowsAndMessaging::*;
+
+    std::thread::spawn(move || unsafe {
+        let menu = match CreatePopupMenu() {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        let _ = AppendMenuW(menu, MF_STRING, 1, windows::core::w!("Open"));
+        let _ = AppendMenuW(menu, MF_STRING, 2, windows::core::w!("Clear Data"));
+        let _ = AppendMenuW(menu, MF_SEPARATOR, 0, windows::core::PCWSTR::null());
+        let _ = AppendMenuW(menu, MF_STRING, 3, windows::core::w!("Uninstall"));
+
+        // FIX 1: TRACK_POPUP_MENU_FLAGS is a newtype in windows 0.61. Extract `.0`.
+        let flags: u32 = (TPM_RETURNCMD | TPM_NONOTIFY).0;
+
+        // FIX 2: HWND is (*mut c_void) in windows 0.61. Cast the isize we captured.
+        let hwnd = windows::Win32::Foundation::HWND(hwnd as *mut core::ffi::c_void);
+
+        let selected = TrackPopupMenuEx(menu, flags, x, y, hwnd, None);
+
+        let _ = DestroyMenu(menu);
+
+        match selected.0 {
+            1 => { let _ = proxy.send_event(UserEvent::Launch(app_id.clone())); }
+            2 => { let _ = proxy.send_event(UserEvent::ClearData(app_id.clone())); }
+            3 => { let _ = proxy.send_event(UserEvent::RemoveApp(app_id.clone())); }
+            _ => {}
+        }
+    });
+}
+
+#[cfg(not(windows))]
+fn show_native_context_menu(
+    _app_id: String,
+    _x: i32,
+    _y: i32,
+    _hwnd: isize,
+    _proxy: EventLoopProxy<UserEvent>,
+) {
+    // No-op on non-Windows for now
 }
 
 pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor) -> Result<()> {
@@ -527,6 +585,16 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
 
     let launcher_window = launcher_window_builder.build(&event_loop)?;
 
+    // Capture the launcher's HWND once. Used to anchor the native context menu.
+    let launcher_hwnd: isize = match launcher_window.window_handle() {
+        Ok(handle) => match handle.as_raw() {
+            RawWindowHandle::Win32(w) => w.hwnd.get() as isize,
+            _ => 0,
+        },
+        Err(_) => 0,
+    };
+    tracing::info!(launcher_hwnd, "launcher HWND captured");
+
     let mut web_context = WebContext::new(Some(env.data_dir.clone()));
 
     let launcher_webview = WebViewBuilder::new_with_web_context(&mut web_context)
@@ -541,6 +609,18 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                     Some("add_app") => { if let Some(url) = msg["url"].as_str() { let _ = proxy.send_event(UserEvent::AddApp { url: url.to_string() }); } }
                     Some("remove_app") => { if let Some(app_id) = msg["app_id"].as_str() { let _ = proxy.send_event(UserEvent::RemoveApp(app_id.to_string())); } }
                     Some("clear_data") => { if let Some(app_id) = msg["app_id"].as_str() { let _ = proxy.send_event(UserEvent::ClearData(app_id.to_string())); } }
+                    Some("show_context_menu") => {
+                        if let (Some(app_id), Some(x), Some(y)) =
+                            (msg["app_id"].as_str(), msg["x"].as_i64(), msg["y"].as_i64())
+                        {
+                            let _ = proxy.send_event(UserEvent::ShowNativeMenu {
+                                app_id: app_id.to_string(),
+                                x: x as i32,
+                                y: y as i32,
+                                hwnd: launcher_hwnd,
+                            });
+                        }
+                    }
                     Some("open_dashboard") => { let _ = proxy.send_event(UserEvent::OpenDashboard); }
                     _ => {}
                 }
@@ -713,6 +793,10 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                     tracing::info!(%app_id, "clear data skipped — app not running");
                     push_notice(&launcher_webview_opt, "Open the app first to clear its data", true);
                 }
+            }
+
+            Event::UserEvent(UserEvent::ShowNativeMenu { app_id, x, y, hwnd }) => {
+                show_native_context_menu(app_id, x, y, hwnd, proxy.clone());
             }
 
             Event::UserEvent(UserEvent::ManifestIngested { app_id, name, icon_path }) => {
@@ -1044,11 +1128,11 @@ fn classify_popup(url: &str, parent_origin: Option<&str>) -> PopupDisposition {
     if scheme == "about" || scheme == "blob" || scheme == "data" { return PopupDisposition::Managed; }
     if scheme != "https" && scheme != "http" { return PopupDisposition::SystemBrowser; }
     let host = match parsed.host_str() { Some(h) => h.trim_end_matches('.').to_lowercase(), None => return PopupDisposition::SystemBrowser };
-    
+
     if origin_matches(parent_origin, Some(&host)) {
         return PopupDisposition::Managed;
     }
-    
+
     const OAUTH_HOSTS: &[&str] = &[
         "accounts.google.com", "ogs.google.com", "apis.google.com", "login.microsoftonline.com", "login.live.com", "login.windows.net",
         "microsoftonline.com", "office.com", "appleid.apple.com", "idmsa.apple.com", "auth0.com", "okta.com",
@@ -1110,7 +1194,20 @@ fn spawn_app_window(
     let start_url = app.start_url.clone();
     let app_id_for_cb = app.id.clone();
 
-    let webview = WebViewBuilder::new_with_web_context(web_context)
+    // Validate & apply the profile name. If validation fails, log it and fall back
+    // to the shared profile so the app still launches.
+    let profile_name: Option<String> = match sanitize_profile_name(&app.id) {
+        Ok(name) => {
+            tracing::info!(profile = %name, app_id = %app.id, "webview created with isolated profile");
+            Some(name)
+        }
+        Err(e) => {
+            tracing::warn!(app_id = %app.id, error = %e, "profile name rejected — falling back to shared profile");
+            None
+        }
+    };
+
+    let mut builder = WebViewBuilder::new_with_web_context(web_context)
         .with_url(&start_url)
         .with_additional_browser_args("--disable-features=CalculateNativeWinOcclusion")
         .with_initialization_script(REEVE_SDK_JS)
@@ -1138,8 +1235,13 @@ fn spawn_app_window(
             let response_json = bridge.handle(req.body());
             let script = format!("window.dispatchEvent(new CustomEvent('reeve-response', {{ detail: {response_json} }}));");
             let _ = bridge_proxy.send_event(UserEvent::BridgeResponse { window_id, script });
-        })
-        .build(&window)?;
+        });
+
+    if let Some(name) = profile_name {
+        builder = builder.with_profile_name(name);
+    }
+
+    let webview = builder.build(&window)?;
 
     Ok((window, webview, instance, started_at))
 }
