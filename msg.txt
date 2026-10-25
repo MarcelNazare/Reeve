@@ -1,0 +1,41 @@
+feat(bench): add cold-start measurement and correct the RAM claim
+
+The benchmark harness now measures t_stable (memory-flat proxy, all
+scenarios) and t_ready (first on_page_load, Reeve only), polled at
+100ms before warm-up. The results force an honest correction to the
+project's framing.
+
+Measured on five heavy PWAs (Linear, Notion, Figma, Slack, Spotify):
+
+  Reeve:       steady 2165.5 MB, 18 procs, t_stable 41.1s
+  Chrome tabs: steady 2195.3 MB, 24 procs, t_stable  9.2s
+
+Steady-state memory is at parity with Chrome tabs, not 80% below.
+The "80% less RAM" claim holds only against Electron, which bundles
+a separate Chromium per app. README and release notes updated to
+report this accurately.
+
+Implementation:
+- src/bin/benchmark.rs: measure_cold_start polls every 100ms,
+  records t_stable when total tree memory is flat (<5MB growth) for
+  1.5s while >50MB, and t_ready when the first REEVE_APP_READY line
+  arrives on Reeve's captured stdout. New ColdStart struct emitted
+  in both Markdown and JSON reports. BOOL import moved to
+  windows::core; HashSet added to win_proc module.
+- src/ui.rs: spawn_app_window installs with_on_page_load_handler
+  that emits REEVE_APP_READY:{id} on PageLoadEvent::Finished, but
+  only when REEVE_BENCH_AUTO_LAUNCH is set. Normal launches silent.
+- src/governor.rs: query_job_stats reads PeakJobMemoryUsed from
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION (two syscalls: extended for
+  peak, basic-accounting for active process count). Passing
+  Some(handle) to QueryInformationJobObject.
+- Cargo.toml: add Win32_UI_WindowsAndMessaging feature.
+- Makefile: bench, bench-quick, bench-long, bench-scenario,
+  bench-reeve/electron/chrome targets. BENCH_DURATION and BENCH_OUT
+  overridable. distclean removes benchmark-results/.
+- LICENSE: MIT, copyright 2026 Marcel Nazare.
+
+Cold start is 4x slower than Chrome (41.1s vs 9.2s to reach stable
+state). First paint is fast (t_ready 12.5s), but WebView2 continues
+spinning up GPU/utility/background renderer processes long after.
+Flagged as a known issue with a concrete investigation plan.

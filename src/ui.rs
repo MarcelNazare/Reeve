@@ -17,7 +17,7 @@ use tao::{
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
     window::{Window, WindowBuilder, WindowId},
 };
-use wry::{NewWindowResponse, WebContext, WebView, WebViewBuilder};
+use wry::{NewWindowResponse, PageLoadEvent, WebContext, WebView, WebViewBuilder};
 
 #[derive(Debug, Clone)]
 pub enum UserEvent {
@@ -351,8 +351,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
     let mut memory_query_in_flight = false;
     let mut memory_query_started = Instant::now();
 
-    // Benchmark auto-launch: when REEVE_BENCH_AUTO_LAUNCH is set, queue a Launch
-    // for each comma-separated URL. Used only by the benchmark harness.
     if let Ok(auto) = std::env::var("REEVE_BENCH_AUTO_LAUNCH") {
         for url in auto.split(',').map(str::trim).filter(|s| !s.is_empty()) {
             if let Ok((id, name, canonical)) = derive_app_from_url(url) {
@@ -471,13 +469,11 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             Event::UserEvent(UserEvent::MemoryPollResult(usage)) => {
                 memory_query_in_flight = false;
 
-                // Aggregate per app (a single app may own multiple renderers).
                 let mut by_app: HashMap<String, u64> = HashMap::new();
                 for u in &usage {
                     *by_app.entry(u.app_id.clone()).or_insert(0) += u.memory_bytes;
                 }
 
-                // Update per-session peaks — this is what feeds `sessions.peak_mem_bytes`.
                 for aw in app_windows.values_mut() {
                     if let Some(&mem) = by_app.get(&aw.instance.app.id) {
                         if mem > aw.peak_memory {
@@ -586,7 +582,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             _ => {}
         }
 
-        // --- periodic Job Object attach ---
         if last_scan.elapsed() >= scan_interval {
             last_scan = Instant::now();
             if let Some(aw) = app_windows.values().next() {
@@ -598,7 +593,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             }
         }
 
-        // --- global memory poll: runs regardless of dashboard state ---
         if memory_query_in_flight && memory_query_started.elapsed() > Duration::from_secs(30) {
             tracing::warn!("memory poll timed out; resetting in-flight flag");
             memory_query_in_flight = false;
@@ -624,7 +618,6 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             }
         }
 
-        // --- dashboard tick ---
         if let Some(d) = &dashboard {
             if last_dashboard_push.elapsed() >= dashboard_push_interval {
                 last_dashboard_push = Instant::now();
@@ -847,9 +840,17 @@ fn spawn_app_window(
     let bridge_proxy = proxy.clone();
     let popup_parent_origin = expected_host.clone();
     let start_url = app.start_url.clone();
+    let app_id_for_cb = app.id.clone();
 
     let webview = WebViewBuilder::new_with_web_context(web_context)
         .with_url(&start_url)
+        .with_on_page_load_handler(move |event, _url| {
+            if matches!(event, PageLoadEvent::Finished) {
+                if std::env::var("REEVE_BENCH_AUTO_LAUNCH").is_ok() {
+                    println!("REEVE_APP_READY:{}", app_id_for_cb);
+                }
+            }
+        })
         .with_new_window_req_handler(move |popup_url, _features| {
             match classify_popup(&popup_url, popup_parent_origin.as_deref()) {
                 PopupDisposition::Managed => NewWindowResponse::Allow,

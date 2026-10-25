@@ -1,0 +1,4933 @@
+[
+  {
+    "scenario": "reeve",
+    "duration_secs": 120,
+    "baseline_processes": 189,
+    "cold_start": {
+      "t_stable_ms": 41100,
+      "t_ready_ms": 12460
+    },
+    "peak_bytes": 2700603392,
+    "peak_processes": 18,
+    "steady_bytes": 2270679040,
+    "steady_processes": 18,
+    "samples": [
+      {
+        "t_secs": 0,
+        "total_bytes": 2698203136,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21540864
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 161755136
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 15540224
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 206118912
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 59248640
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23633920
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 65097728
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 355278848
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 248459264
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 290357248
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 338239488
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 277192704
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 287285248
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 118415360
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49975296
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91144192
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42520576
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46399488
+          }
+        ]
+      },
+      {
+        "t_secs": 5,
+        "total_bytes": 2700603392,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21544960
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 161959936
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 15540224
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 204644352
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 59322368
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23646208
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 65105920
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 356786176
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 251183104
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 290611200
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 338243584
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 276881408
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 288206848
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 118435840
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49278976
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91144192
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42201088
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 45867008
+          }
+        ]
+      },
+      {
+        "t_secs": 10,
+        "total_bytes": 2453225472,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21614592
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 161976320
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 15540224
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 211005440
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 59334656
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23650304
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 65105920
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 370655232
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 208642048
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 226869248
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 270786560
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 225419264
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 245243904
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 118771712
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49278976
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91262976
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42201088
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 45867008
+          }
+        ]
+      },
+      {
+        "t_secs": 15,
+        "total_bytes": 2487025664,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21635072
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 161988608
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 15540224
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 204603392
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 59334656
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23650304
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 65105920
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 405827584
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 209592320
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 228556800
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 270790656
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 226066432
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 246943744
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 118779904
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49278976
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91262976
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42201088
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 45867008
+          }
+        ]
+      },
+      {
+        "t_secs": 20,
+        "total_bytes": 2495782912,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21610496
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 167301120
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 15540224
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 207646720
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 58748928
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23650304
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 65105920
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 422600704
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 206999552
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230846464
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 247181312
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 233693184
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 247463936
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 118779904
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49283072
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91262976
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42201088
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 45867008
+          }
+        ]
+      },
+      {
+        "t_secs": 25,
+        "total_bytes": 2500313088,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21745664
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 168132608
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 15540224
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 207900672
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 57729024
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23650304
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 65105920
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 422813696
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 207863808
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 231075840
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 247422976
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 236269568
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 247668736
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 118779904
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49283072
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91262976
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42201088
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 45867008
+          }
+        ]
+      },
+      {
+        "t_secs": 30,
+        "total_bytes": 2444201984,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21770240
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 179032064
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10620928
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 201113600
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 56651776
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23953408
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63848448
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 418426880
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 207200256
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 224387072
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 247607296
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 238739456
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 248410112
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72908800
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49496064
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42422272
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46084096
+          }
+        ]
+      },
+      {
+        "t_secs": 35,
+        "total_bytes": 2339577856,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21782528
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 175751168
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10620928
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 155172864
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55894016
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23822336
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 64401408
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 388411392
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 197677056
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 218812416
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 247615488
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 233996288
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 243171328
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72916992
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49496064
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42422272
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46084096
+          }
+        ]
+      },
+      {
+        "t_secs": 40,
+        "total_bytes": 2314125312,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21807104
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 174039040
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10620928
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 157257728
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55595008
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23822336
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 64401408
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 388907008
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 199024640
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 215457792
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 247615488
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 229629952
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 223481856
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72933376
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49496064
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42422272
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46084096
+          }
+        ]
+      },
+      {
+        "t_secs": 45,
+        "total_bytes": 2316902400,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21782528
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 174407680
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10620928
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 151965696
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55734272
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23822336
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 64401408
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 384241664
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 199270400
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 216412160
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 247615488
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 229998592
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 234135552
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49520640
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42422272
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46084096
+          }
+        ]
+      },
+      {
+        "t_secs": 50,
+        "total_bytes": 2286686208,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21774336
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 174624768
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10620928
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 145883136
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55668736
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23822336
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 64405504
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 381992960
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 196194304
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 215232512
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230150144
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 227061760
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 236744704
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42422272
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46084096
+          }
+        ]
+      },
+      {
+        "t_secs": 55,
+        "total_bytes": 2281033728,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21794816
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 172060672
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10620928
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 143560704
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55541760
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23822336
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 64405504
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 382365696
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 196571136
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 216207360
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230178816
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 223428608
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 237936640
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91533312
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42434560
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 60,
+        "total_bytes": 2268848128,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21843968
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171388928
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10608640
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 144809984
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55631872
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 64405504
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 383971328
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 197918720
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 217128960
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230178816
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 223375360
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 221220864
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91533312
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 65,
+        "total_bytes": 2267615232,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21868544
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171376640
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10608640
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 143577088
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55570432
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63520768
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 385998848
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 197840896
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 216793088
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230178816
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 223375360
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 220540928
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91533312
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 70,
+        "total_bytes": 2263154688,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21889024
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171515904
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10608640
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 143384576
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55672832
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63430656
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 387727360
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 197124096
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 216584192
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230178816
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 216678400
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 221999104
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 75,
+        "total_bytes": 2258612224,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21921792
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171409408
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10608640
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 143376384
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55558144
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63430656
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 380669952
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 197750784
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 216444928
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230178816
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 218451968
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 222449664
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 80,
+        "total_bytes": 2250190848,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21942272
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171413504
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10608640
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 145694720
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55533568
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63320064
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 373911552
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 198275072
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 217624576
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230178816
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 215392256
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 219934720
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 85,
+        "total_bytes": 2250866688,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21975040
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171302912
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10608640
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 143392768
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55590912
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63107072
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 375619584
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 198131712
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 217530368
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230178816
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 215400448
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 221667328
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 90,
+        "total_bytes": 2251345920,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 21999616
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171524096
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10596352
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 143491072
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55492608
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63102976
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 377487360
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 198098944
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 216625152
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230146048
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 215420928
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 220999680
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 95,
+        "total_bytes": 2256461824,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 22020096
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171462656
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10596352
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 143556608
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55402496
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63094784
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 379621376
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 197812224
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 217960448
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230146048
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 215486464
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 222941184
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 100,
+        "total_bytes": 2249031680,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 22028288
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171335680
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10543104
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 142503936
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55455744
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63094784
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 374947840
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 198402048
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 217370624
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230146048
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 215175168
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 221667328
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49537024
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 105,
+        "total_bytes": 2260946944,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 22052864
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171761664
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10543104
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 144723968
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55590912
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63094784
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 374165504
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 198160384
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 218427392
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230146048
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 215224320
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230686720
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49545216
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 42442752
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 110,
+        "total_bytes": 2270679040,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 22069248
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171331584
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10543104
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 143548416
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55590912
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63094784
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 375828480
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 197783552
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 217825280
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230146048
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 214958080
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 239800320
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49565696
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 44212224
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      },
+      {
+        "t_secs": 115,
+        "total_bytes": 2277728256,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 13080,
+            "name": "reeve.exe",
+            "memory_bytes": 22089728
+          },
+          {
+            "pid": 15228,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 171405312
+          },
+          {
+            "pid": 6952,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 10543104
+          },
+          {
+            "pid": 640,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 151949312
+          },
+          {
+            "pid": 10416,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 55386112
+          },
+          {
+            "pid": 3804,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 23818240
+          },
+          {
+            "pid": 13260,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 63094784
+          },
+          {
+            "pid": 12280,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 377569280
+          },
+          {
+            "pid": 14944,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 197840896
+          },
+          {
+            "pid": 14516,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 218259456
+          },
+          {
+            "pid": 6380,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 230146048
+          },
+          {
+            "pid": 11392,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 215080960
+          },
+          {
+            "pid": 2520,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 236204032
+          },
+          {
+            "pid": 1488,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 5708,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 49565696
+          },
+          {
+            "pid": 5132,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 91529216
+          },
+          {
+            "pid": 4404,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 44212224
+          },
+          {
+            "pid": 15012,
+            "name": "msedgewebview2.exe",
+            "memory_bytes": 46096384
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "scenario": "chrome-tabs",
+    "duration_secs": 120,
+    "baseline_processes": 187,
+    "cold_start": {
+      "t_stable_ms": 9200,
+      "t_ready_ms": null
+    },
+    "peak_bytes": 2319630336,
+    "peak_processes": 24,
+    "steady_bytes": 2301988864,
+    "steady_processes": 24,
+    "samples": [
+      {
+        "t_secs": 0,
+        "total_bytes": 1217777664,
+        "process_count": 15,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 189988864
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10051584
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 75403264
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 77774848
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 18157568
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 85929984
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 178008064
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53358592
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 75358208
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 131215360
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 103534592
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 78688256
+          },
+          {
+            "pid": 13176,
+            "name": "chrome.exe",
+            "memory_bytes": 39829504
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 68366336
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 32112640
+          }
+        ]
+      },
+      {
+        "t_secs": 5,
+        "total_bytes": 1410138112,
+        "process_count": 16,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 193052672
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10051584
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 73637888
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 72937472
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 18227200
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 85929984
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 200765440
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 52846592
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 135598080
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 172519424
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 127823872
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 92217344
+          },
+          {
+            "pid": 13176,
+            "name": "chrome.exe",
+            "memory_bytes": 39829504
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 84459520
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 31817728
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 18423808
+          }
+        ]
+      },
+      {
+        "t_secs": 10,
+        "total_bytes": 1488560128,
+        "process_count": 16,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 198598656
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10051584
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 74043392
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 79511552
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 18403328
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 85929984
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 217448448
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 52932608
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 128417792
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 194650112
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 142741504
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 99508224
+          },
+          {
+            "pid": 13176,
+            "name": "chrome.exe",
+            "memory_bytes": 39829504
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 95342592
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 31817728
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 19333120
+          }
+        ]
+      },
+      {
+        "t_secs": 15,
+        "total_bytes": 1750097920,
+        "process_count": 16,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 200835072
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10051584
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 168189952
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 68583424
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 18456576
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 85934080
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 291762176
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 52932608
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 135360512
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 219070464
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 137170944
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 103329792
+          },
+          {
+            "pid": 13176,
+            "name": "chrome.exe",
+            "memory_bytes": 39833600
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 95281152
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 31821824
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91484160
+          }
+        ]
+      },
+      {
+        "t_secs": 20,
+        "total_bytes": 1571315712,
+        "process_count": 15,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 201818112
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10051584
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 98496512
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 66904064
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 18518016
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79417344
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 294199296
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 52961280
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 134225920
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 143900672
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 140226560
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 108908544
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 98381824
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 31821824
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91484160
+          }
+        ]
+      },
+      {
+        "t_secs": 25,
+        "total_bytes": 1613148160,
+        "process_count": 16,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 207499264
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10051584
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 108158976
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 64651264
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 18620416
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79421440
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 245919744
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 52961280
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 149880832
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 148033536
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 142774272
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 115662848
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 114708480
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 57077760
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91488256
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 6238208
+          }
+        ]
+      },
+      {
+        "t_secs": 30,
+        "total_bytes": 1818337280,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 210079744
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10059776
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 98893824
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 69857280
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 23896064
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79425536
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 238915584
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 52973568
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 153235456
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 159272960
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 154415104
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 126210048
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 122908672
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 137019392
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91697152
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 36556800
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 32129024
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20791296
+          }
+        ]
+      },
+      {
+        "t_secs": 35,
+        "total_bytes": 1823584256,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 208056320
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10031104
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 97615872
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 71868416
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 23896064
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79425536
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 238907392
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 52977664
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 154628096
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 163553280
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 155082752
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 126271488
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 119783424
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 140165120
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91701248
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 36614144
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 32247808
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20758528
+          }
+        ]
+      },
+      {
+        "t_secs": 40,
+        "total_bytes": 1969713152,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 209977344
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10031104
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 105144320
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 64040960
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 23822336
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79425536
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 238911488
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 52985856
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 155963392
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 205152256
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 167497728
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 126271488
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 129699840
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 213245952
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91701248
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 43102208
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 31977472
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20762624
+          }
+        ]
+      },
+      {
+        "t_secs": 45,
+        "total_bytes": 1993236480,
+        "process_count": 18,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 214396928
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10031104
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 112025600
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 63901696
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21217280
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79425536
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 237031424
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 52989952
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 154415104
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 216039424
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 181305344
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 126287872
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 130392064
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 206229504
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91701248
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 43106304
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 31977472
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20762624
+          }
+        ]
+      },
+      {
+        "t_secs": 50,
+        "total_bytes": 2074673152,
+        "process_count": 20,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 217600000
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10035200
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 100143104
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 63987712
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21250048
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79425536
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 237031424
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53731328
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 159363072
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 211509248
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 186560512
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 126287872
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 130437120
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 206286848
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91705344
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 42971136
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41222144
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20766720
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 42283008
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 32075776
+          }
+        ]
+      },
+      {
+        "t_secs": 55,
+        "total_bytes": 2236551168,
+        "process_count": 22,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 221081600
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10039296
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 97878016
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 65187840
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21921792
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79417344
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 222437376
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53731328
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 159264768
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 206479360
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 188780544
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 125345792
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 130449408
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 206405632
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91709440
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 42979328
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41222144
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20766720
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 42303488
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 91693056
+          },
+          {
+            "pid": 13608,
+            "name": "chrome.exe",
+            "memory_bytes": 32083968
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 85372928
+          }
+        ]
+      },
+      {
+        "t_secs": 60,
+        "total_bytes": 2314309632,
+        "process_count": 23,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 230473728
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10039296
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 97185792
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 65110016
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21303296
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79417344
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 222437376
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53731328
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 158298112
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 196321280
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 208506880
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 124600320
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 130449408
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 188653568
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91709440
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 42983424
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41066496
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20774912
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41967616
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 101769216
+          },
+          {
+            "pid": 13608,
+            "name": "chrome.exe",
+            "memory_bytes": 32206848
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 87506944
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 67796992
+          }
+        ]
+      },
+      {
+        "t_secs": 65,
+        "total_bytes": 2292719616,
+        "process_count": 23,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 225484800
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10039296
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 90464256
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 63270912
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21303296
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79417344
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 222359552
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53731328
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 158298112
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 196321280
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 198008832
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 124600320
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 130449408
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 188928000
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91680768
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 42983424
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41066496
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20774912
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41967616
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 104935424
+          },
+          {
+            "pid": 13608,
+            "name": "chrome.exe",
+            "memory_bytes": 31911936
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 85565440
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 69156864
+          }
+        ]
+      },
+      {
+        "t_secs": 70,
+        "total_bytes": 2297016320,
+        "process_count": 23,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 225947648
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10039296
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 90308608
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 63127552
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21307392
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79417344
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 222359552
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53731328
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 158298112
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 196104192
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 201588736
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 124600320
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 130465792
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189386752
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91688960
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 42983424
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41066496
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20774912
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41967616
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 106270720
+          },
+          {
+            "pid": 13608,
+            "name": "chrome.exe",
+            "memory_bytes": 31911936
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 85323776
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 68345856
+          }
+        ]
+      },
+      {
+        "t_secs": 75,
+        "total_bytes": 2301652992,
+        "process_count": 23,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 227909632
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10047488
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 90439680
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 63406080
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21372928
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79417344
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 222306304
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53731328
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 158298112
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 200359936
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 202403840
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 124600320
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 130465792
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189566976
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91787264
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 42983424
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41066496
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20774912
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41967616
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 106676224
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 84529152
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 68243456
+          },
+          {
+            "pid": 10248,
+            "name": "chrome.exe",
+            "memory_bytes": 29298688
+          }
+        ]
+      },
+      {
+        "t_secs": 80,
+        "total_bytes": 2316582912,
+        "process_count": 23,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 244916224
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10047488
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 90394624
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 60862464
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21364736
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79429632
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 222265344
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53555200
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 156901376
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 200368128
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 205037568
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 124612608
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 130478080
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189243392
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91787264
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 42999808
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41082880
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20774912
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41988096
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 106954752
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 84541440
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 67588096
+          },
+          {
+            "pid": 10248,
+            "name": "chrome.exe",
+            "memory_bytes": 29388800
+          }
+        ]
+      },
+      {
+        "t_secs": 85,
+        "total_bytes": 2293673984,
+        "process_count": 23,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 244588544
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10047488
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 89014272
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 60813312
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21364736
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79429632
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 222265344
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53325824
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 156901376
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 200368128
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 198574080
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 115011584
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 129458176
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189579264
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91787264
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 42999808
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41082880
+          },
+          {
+            "pid": 12948,
+            "name": "chrome.exe",
+            "memory_bytes": 20774912
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41988096
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 103190528
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 84443136
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 67588096
+          },
+          {
+            "pid": 10248,
+            "name": "chrome.exe",
+            "memory_bytes": 29077504
+          }
+        ]
+      },
+      {
+        "t_secs": 90,
+        "total_bytes": 2271232000,
+        "process_count": 22,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 249151488
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10047488
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 87506944
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 60817408
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21364736
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79405056
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 215707648
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53321728
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 156901376
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 200368128
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 201678848
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 114868224
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 129429504
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189587456
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91787264
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 43008000
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41082880
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41988096
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 102739968
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 82432000
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 68960256
+          },
+          {
+            "pid": 10248,
+            "name": "chrome.exe",
+            "memory_bytes": 29077504
+          }
+        ]
+      },
+      {
+        "t_secs": 95,
+        "total_bytes": 2293645312,
+        "process_count": 22,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 270757888
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10047488
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 87756800
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 60928000
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21364736
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79405056
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 215707648
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53321728
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 157655040
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 200359936
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 205123584
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 114507776
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 129478656
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189558784
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91787264
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 43008000
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41082880
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41988096
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 99958784
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 82440192
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 68280320
+          },
+          {
+            "pid": 10248,
+            "name": "chrome.exe",
+            "memory_bytes": 29126656
+          }
+        ]
+      },
+      {
+        "t_secs": 100,
+        "total_bytes": 2250502144,
+        "process_count": 22,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 224710656
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10047488
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 87711744
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 60817408
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21364736
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79405056
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 214597632
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53313536
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 157655040
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 200359936
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 209682432
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 114507776
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 129036288
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189558784
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91787264
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 43008000
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41082880
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41988096
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 100016128
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 82440192
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 68284416
+          },
+          {
+            "pid": 10248,
+            "name": "chrome.exe",
+            "memory_bytes": 29126656
+          }
+        ]
+      },
+      {
+        "t_secs": 105,
+        "total_bytes": 2279985152,
+        "process_count": 22,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 222154752
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10047488
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 87711744
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 57012224
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21348352
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 78893056
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 214622208
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53346304
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 157679616
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 201138176
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 245100544
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 114532352
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 129060864
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189530112
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91787264
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 43008000
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41082880
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 41988096
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 100089856
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 82440192
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 68284416
+          },
+          {
+            "pid": 10248,
+            "name": "chrome.exe",
+            "memory_bytes": 29126656
+          }
+        ]
+      },
+      {
+        "t_secs": 110,
+        "total_bytes": 2301988864,
+        "process_count": 23,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 220377088
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10047488
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 87789568
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 55951360
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21487616
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 79110144
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 214765568
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53563392
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 157827072
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 201273344
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 249638912
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 114671616
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 129228800
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189693952
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91918336
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 43249664
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41328640
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 42229760
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 100327424
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 82653184
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 68624384
+          },
+          {
+            "pid": 10248,
+            "name": "chrome.exe",
+            "memory_bytes": 29483008
+          },
+          {
+            "pid": 8488,
+            "name": "chrome.exe",
+            "memory_bytes": 16748544
+          }
+        ]
+      },
+      {
+        "t_secs": 115,
+        "total_bytes": 2319630336,
+        "process_count": 24,
+        "processes": [
+          {
+            "pid": 8396,
+            "name": "chrome.exe",
+            "memory_bytes": 222453760
+          },
+          {
+            "pid": 11208,
+            "name": "chrome.exe",
+            "memory_bytes": 10047488
+          },
+          {
+            "pid": 5276,
+            "name": "chrome.exe",
+            "memory_bytes": 87789568
+          },
+          {
+            "pid": 6196,
+            "name": "chrome.exe",
+            "memory_bytes": 55816192
+          },
+          {
+            "pid": 6688,
+            "name": "chrome.exe",
+            "memory_bytes": 21487616
+          },
+          {
+            "pid": 14340,
+            "name": "chrome.exe",
+            "memory_bytes": 78917632
+          },
+          {
+            "pid": 14940,
+            "name": "chrome.exe",
+            "memory_bytes": 214765568
+          },
+          {
+            "pid": 9556,
+            "name": "chrome.exe",
+            "memory_bytes": 53563392
+          },
+          {
+            "pid": 12424,
+            "name": "chrome.exe",
+            "memory_bytes": 158302208
+          },
+          {
+            "pid": 9916,
+            "name": "chrome.exe",
+            "memory_bytes": 201621504
+          },
+          {
+            "pid": 6828,
+            "name": "chrome.exe",
+            "memory_bytes": 242667520
+          },
+          {
+            "pid": 13672,
+            "name": "chrome.exe",
+            "memory_bytes": 114671616
+          },
+          {
+            "pid": 12116,
+            "name": "chrome.exe",
+            "memory_bytes": 129228800
+          },
+          {
+            "pid": 13216,
+            "name": "chrome.exe",
+            "memory_bytes": 189698048
+          },
+          {
+            "pid": 8572,
+            "name": "chrome.exe",
+            "memory_bytes": 91918336
+          },
+          {
+            "pid": 3836,
+            "name": "chrome.exe",
+            "memory_bytes": 43249664
+          },
+          {
+            "pid": 9608,
+            "name": "chrome.exe",
+            "memory_bytes": 41328640
+          },
+          {
+            "pid": 14900,
+            "name": "chrome.exe",
+            "memory_bytes": 42229760
+          },
+          {
+            "pid": 14740,
+            "name": "chrome.exe",
+            "memory_bytes": 100380672
+          },
+          {
+            "pid": 14332,
+            "name": "chrome.exe",
+            "memory_bytes": 82657280
+          },
+          {
+            "pid": 8076,
+            "name": "chrome.exe",
+            "memory_bytes": 68800512
+          },
+          {
+            "pid": 10248,
+            "name": "chrome.exe",
+            "memory_bytes": 29483008
+          },
+          {
+            "pid": 12376,
+            "name": "chrome.exe",
+            "memory_bytes": 19267584
+          },
+          {
+            "pid": 4816,
+            "name": "chrome.exe",
+            "memory_bytes": 19283968
+          }
+        ]
+      }
+    ]
+  }
+]

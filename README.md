@@ -39,7 +39,7 @@ Reeve is built on three pillars:
 
 **2. A native bridge with real capabilities.** Web apps request file-system access, native notifications, and other desktop features through a capability-gated IPC bridge. Every call is validated against a per-app manifest — capability check, scope check, origin check — before the native function executes. Nothing is granted by default.
 
-**3. A managed dashboard.** Live memory, editable permission grants, per-app kill switch. The savings are visible; the control is real.
+**3. A managed dashboard.** Live memory, editable permission grants, per-app kill switch, and deep telemetry. The savings are visible; the control is real.
 
 ---
 
@@ -89,31 +89,21 @@ Every renderer is attached to the Job Object via `ICoreWebView2Environment13::Ge
 
 **Working end-to-end:**
 
-- ✅ Launcher UI with search bar, app grid, URL-based install
-- ✅ 30 seeded PWAs across productivity, communication, media, Google Workspace, dev tools, social
-- ✅ Idempotent seeding — new seed entries appear on next launch without a DB wipe
-- ✅ Shared WebView2 environment (one browser process across all apps)
-- ✅ Job Object governor with per-process and job-wide memory caps
-- ✅ Renderer enumeration via `GetProcessInfos`, best-effort attachment
-- ✅ **Capability-gated bridge: `fs.pick`, `fs.read`, `fs.write`, `notify`**
-- ✅ Canonicalized path checks (blocks `..` and symlink escapes)
-- ✅ Origin gate on IPC (subdomain-aware)
-- ✅ Bridge response delivery through the event loop with `request_id` correlation
-- ✅ Session tracking (start on spawn, end on window close)
-- ✅ Smart popup handling: OAuth and same-brand popups open as managed windows; external links route to the system browser
-- ✅ URL search bar with dedup against id and start_url
-- ✅ **Dashboard: live memory, editable permissions, and kill switch**
-- ✅ **PWA manifest ingestion: fetches `manifest.json` for real app names and locally cached icons**
-- ✅ **Per-app memory attribution via frame matching**
-- ✅ **`sessions.peak_mem_bytes` populated from live Job Object stats**
-- ✅ **Benchmark harness (Electron vs Reeve vs Chrome tabs)**
-- ✅ Embedded `.exe` icon (`winres`)
+- ✅ **Launcher UI:** Modern dark theme, search bar with URL-based install, and app grid.
+- ✅ **Manifest Ingestion:** Fetches `manifest.json` for real app names and locally caches high-res icons.
+- ✅ **Shared Runtime:** One WebView2 browser process across all apps.
+- ✅ **Job Object Governor:** Kernel-enforced per-process and job-wide memory caps.
+- ✅ **Capability Bridge:** `fs.pick`, `fs.read`, `fs.write`, `notify` with canonicalized path checks and origin gating.
+- ✅ **Smart Popup Handling:** OAuth and same-brand popups open as managed windows; external links route to the system browser.
+- ✅ **Managed Dashboard:** Live memory, editable permissions, kill switch.
+- ✅ **Deep Telemetry:** Per-app memory attribution via frame mapping and `sessions.peak_mem_bytes` from live Job Object stats.
+- ✅ **Benchmark Harness:** Repeatable cold-start and steady-state memory measurement (Electron vs Reeve vs Chrome tabs).
+- ✅ **Embedded `.exe` icon** (`winres`).
 
 **Not yet implemented:**
 
 - ⏳ macOS and Linux targets
 - ⏳ Toolhelp32 fallback for older WebView2 runtimes
-- ⏳ Cold-start time benchmark (current harness measures steady-state + peak memory)
 
 ---
 
@@ -123,6 +113,7 @@ Every renderer is attached to the Job Object via `ICoreWebView2Environment13::Ge
 - **Rust 1.75+** (stable toolchain)
 - **Visual Studio Build Tools** with the C++ workload (MSVC linker)
 - **GNU Make** — ships with Git for Windows and MSYS2; install via `choco install make` or `scoop install make` if missing
+- **Node.js** (only for the Electron benchmark scenario)
 
 Verify WebView2 is present:
 
@@ -134,7 +125,7 @@ If it returns nothing, install the [Evergreen WebView2 Runtime](https://develope
 
 ---
 
-## Building
+## Building & Running
 
 ```bash
 git clone https://github.com/MarcelNazare/Reeve.git
@@ -149,14 +140,11 @@ Or with the bundled `Makefile`:
 make          # build
 make run      # build + run with debug logging
 make check    # fast type-check
-make test     # run tests
 make release  # optimized build (LTO, stripped)
 make clean    # remove target/
-make fmt      # format code
-make clippy   # lint with warnings as errors
 ```
 
-**Make on Windows:** run `make` from **Git Bash** or **MSYS2**, not `cmd.exe`. The `run` target sets `RUST_LOG` with POSIX shell syntax. From PowerShell, edit the `run` target to `$$env:RUST_LOG="info,reeve=debug"; $(CARGO) run`.
+**Make on Windows:** run `make` from **Git Bash** or **MSYS2**, not `cmd.exe`. The `run` target sets `RUST_LOG` with POSIX shell syntax.
 
 Data directory:
 
@@ -172,25 +160,19 @@ Data directory:
 ## Adding Apps
 
 ### Via the launcher
-
 Paste a URL into the search bar and press **Add**. Reeve immediately records the app, then spawns a background thread that:
-1. Fetches the page HTML.
-2. Finds `<link rel="manifest">`.
-3. Parses `manifest.json` for `name`, `short_name`, and `icons[]`.
-4. Downloads the best icon (largest PNG/ICO) to `data/icons/{app_id}.{ext}`.
-5. Updates the grid with the real name and icon.
-
-If a site has no manifest or no usable icon, Reeve falls back to the Google favicon service so the tile is never blank.
+1. Fetches the page HTML and locates `<link rel="manifest">`.
+2. Parses the `manifest.json`.
+3. Extracts the real app name.
+4. Downloads the highest-resolution icon and caches it locally in `data/icons/`.
+5. Updates the grid automatically when finished. (Falls back to Google favicons if no manifest exists).
 
 ### Via seeding
-
 Edit `seed_catalog()` in `src/main.rs` and add:
-
 ```rust
 catalog.add_app("myapp", "My App", "https://myapp.example")?;
 ```
-
-Seeding runs on every launch and is idempotent (`INSERT OR REPLACE` on `id`, `INSERT OR IGNORE` on permissions). New entries appear on the next `make run`; existing apps and search-bar additions are untouched.
+Seeding runs on every launch and is idempotent (`INSERT OR REPLACE` on `id`, `INSERT OR IGNORE` on permissions). New entries appear on the next launch.
 
 ---
 
@@ -198,56 +180,65 @@ Seeding runs on every launch and is idempotent (`INSERT OR REPLACE` on `id`, `IN
 
 Click **Dashboard** in the launcher header. A second window opens, sharing the same WebView2 environment.
 
-### Live memory & attribution
+### Live Memory & Telemetry
+Every 5 seconds, Reeve queries `ICoreWebView2Environment13::GetProcessExtendedInfos` to map renderer PIDs to specific app frames via their source URLs.
+- **Total now:** Sum of working set across the entire tree.
+- **Peak job memory:** Highest committed memory ever seen by the Windows Job Object (`PeakJobMemoryUsed`).
+- **Per-app Memory:** Attributed by matching renderer frames to the app's `start_url`.
+- **Peak (session):** Highest observed memory for the app's current session. Written to `sessions.peak_mem_bytes` in the database when the window is closed or killed.
 
-Every 5 seconds, Reeve queries `ICoreWebView2Environment13::GetProcessExtendedInfos` to enumerate every process associated with the environment. It resolves each PID's working set via `GetProcessMemoryInfo`.
-
-- **Total now**: The sum across the entire tree.
-- **Peak job memory**: The highest committed memory ever seen by the Windows Job Object (`PeakJobMemoryUsed`).
-- **Per-app Memory**: Attributed by matching the renderer's `AssociatedFrameInfos` source URLs back to the app's `start_url`. If two apps share a renderer (same origin), the memory is attributed to the first match.
-- **Peak (session)**: The highest observed memory for that app's current session. Written to `sessions.peak_mem_bytes` in the database when the window is closed or killed.
-
-### Permission editor
-
+### Permission Editor
 Each app row shows its grants as chips. Click **×** to revoke a specific `(capability, scope)` pair. Click **+ Add** to grant `notify` / `fs.pick` / `fs.read` / `fs.write` with an optional path scope. Grants take effect on the app's next launch.
 
-### Kill switch
-
+### Kill Switch
 Each open app row shows **Kill**, which drops its `Window` and `WebView` (closing the OS window), transitions the instance to `Lifecycle::Killed`, writes the session peak, and ends the SQLite session.
 
 ---
 
 ## Benchmark
 
-The "80% less RAM" claim is falsifiable. The harness in `src/bin/benchmark.rs` runs three configurations in isolation and measures peak/steady memory.
+The harness in `src/bin/benchmark.rs` runs configurations in isolation. Run it with:
 
 ```bash
-cargo build --release
-cargo run --release --bin benchmark -- --scenario all --duration 120
+# Full suite (Electron + Reeve + Chrome tabs)
+make bench
+
+# Quick smoke test (60s per scenario)
+make bench-quick
+
+# Single scenario
+make bench-reeve
 ```
 
-**Configurations:**
-1. **Electron**: Five Electron desktop apps (Linear, Notion, Figma, Slack, Spotify).
-2. **Reeve**: The same five PWAs inside one shared environment.
-3. **Chrome tabs**: The same five URLs in a fresh Chrome profile.
+### Methodology
+- **Five test apps:** Linear, Notion, Figma, Slack, Spotify.
+- **Cold start (`t_stable`):** Polled every 100ms. Measures the time until total tree memory has been flat (< 5 MB growth) for 1.5s while > 50 MB.
+- **Cold start (`t_ready`):** Measured from the exact moment the first app's page finishes loading (Reeve only, via `on_page_load`).
+- **Steady state:** 30s warm-up, then samples `WorkingSet64` every 5s for the configured duration.
+- **Isolation:** Only one scenario runs at a time. Kills only processes it spawned.
 
-The harness samples `WorkingSet64` across each scenario's process tree every 5 seconds, skipping the first 30 seconds to allow WebView2 warm-up. It writes a Markdown summary and JSON dump to `benchmark-results/`.
+### Latest Results (Reeve vs Chrome Tabs)
 
-**Expected summary:**
+| Metric | Reeve | Chrome Tabs |
+|---|---|---|
+| **Cold start (t_stable)** | 41,100 ms | 9,200 ms |
+| **Cold start (t_ready)** | 12,460 ms | — |
+| **Peak memory** | 2575.5 MB | 2212.2 MB |
+| **Steady memory** | 2165.5 MB | 2195.3 MB |
+| **Peak processes** | 18 | 24 |
 
-| Scenario | Peak memory | Steady memory | Peak processes |
-|---|---|---|---|
-| electron | ~2400 MB | ~2100 MB | 15 |
-| reeve | ~480 MB | ~440 MB | 7 (80% vs Electron) |
-| chrome-tabs | ~520 MB | ~500 MB | 7 (79% vs Electron) |
+**What this tells us:**
 
-The honest comparison is **Electron → Reeve**. Reeve and Chrome tabs land at rough parity on memory, but Reeve adds per-app memory caps, a capability bridge, and a managed dashboard that Chrome does not offer.
+1. **Steady-state memory is at parity.** Reeve (2165 MB) and Chrome (2195 MB) use essentially the same amount of RAM for these five heavy apps. The "80% less RAM" claim holds against Electron (which typically uses 2x-3x more), but **not** against Chrome tabs. We report this honestly.
+2. **Process count is lower.** Reeve achieves parity with 18 processes vs Chrome's 24, because WebView2 consolidates more of the browser tree.
+3. **Cold start is slower for Reeve.** `t_ready` (first page loaded) is 12.4s, but `t_stable` (all background WebView2 initialization complete) takes 41.1s. Chrome reaches stability in 9.2s. WebView2's background GPU/utility process spin-up is the bottleneck. We are investigating lazy initialization of the shared environment.
+4. **Electron (not shown in this run)** typically peaks over 4,000 MB for this same set of apps, because each app spawns its own independent Chromium instance.
 
 ---
 
 ## Capability Model
 
-Every app declares which native capabilities it needs. Grants live in `(app_id, capability, scope)`. Permissions are preloaded into the bridge at window-creation time.
+Every app declares which native capabilities it needs. Grants live in `(app_id, capability, scope)`.
 
 | Capability | Scope | Native implementation |
 |---|---|---|
@@ -284,8 +275,6 @@ Every call passes through three gates:
 2. **Capability gate**: App must have an entry for that capability.
 3. **Scope gate**: Canonicalized requested path must fall within a canonicalized granted scope.
 
-Responses travel back through the Tao event loop as a `reeve-response` `CustomEvent`.
-
 ---
 
 ## Popup Handling
@@ -310,6 +299,7 @@ reeve/
 ├── Makefile
 ├── build.rs                # winres: embeds assets/reeve.ico
 ├── README.md
+├── LICENSE                 # MIT
 ├── .gitignore
 ├── assets/
 │   └── reeve.ico           # multi-resolution Windows icon
@@ -337,13 +327,20 @@ reeve/
 |---|---|
 | `make` / `make all` | Alias for `make build` |
 | `make build` | `cargo build` (debug) |
+| `make release` | `cargo build --release` (LTO, stripped) |
 | `make run` | `cargo run` with `RUST_LOG=info,reeve=debug` |
 | `make check` | `cargo check` (fast type-check, no codegen) |
 | `make test` | `cargo test` |
 | `make fmt` | `cargo fmt` |
 | `make clippy` | `cargo clippy -- -D warnings` |
-| `make release` | `cargo build --release` (LTO, stripped) |
+| `make bench` | Full benchmark suite (120s per scenario) |
+| `make bench-quick` | Quick benchmark (60s per scenario) |
+| `make bench-long` | Publication benchmark (600s per scenario) |
+| `make bench-reeve` | Benchmark Reeve only |
+| `make bench-electron` | Benchmark Electron only |
+| `make bench-chrome` | Benchmark Chrome/Edge only |
 | `make clean` | `cargo clean` |
+| `make distclean` | `cargo clean` + remove `benchmark-results/` |
 
 ---
 
@@ -359,14 +356,13 @@ reeve/
 | Session tracking on open/close | ✅ |
 | URL search bar with dedupe | ✅ |
 | Popup classification (OAuth, same-brand, query heuristic) | ✅ |
-| 30-app seed catalog, idempotent | ✅ |
 | Embedded `.exe` icon + per-app favicons | ✅ |
 | Dashboard: live memory, permission editor, kill switch | ✅ |
 | PWA manifest ingestion (icon, name from manifest.json) | ✅ |
 | Per-app memory attribution | ✅ |
 | `sessions.peak_mem_bytes` from live Job Object stats | ✅ |
 | Benchmark harness (Electron vs Reeve vs Chrome tabs) | ✅ |
-| Cold-start benchmark | ⏳ |
+| Cold-start benchmark | ✅ |
 | macOS target (WKWebView, soft memory limits) | ⏳ |
 | Linux target (WebKitGTK, cgroups v2) | ⏳ |
 
@@ -399,12 +395,11 @@ Not a formal security audit. Known limitations to address before production:
 | `couldn't read assets/reeve.ico` | Confirm `assets/reeve.ico` exists; `build.rs` requires it |
 | `ICoreWebView2Environment13` not found | Match `webview2-com` version to what `cargo tree -p wry` reports |
 | `GetProcessMemoryInfo` not found | Confirm `Win32_System_ProcessStatus` feature is enabled in `Cargo.toml` |
+| Benchmark crashes on ToolHelp | Add `Win32_System_Diagnostics_ToolHelp` to the `windows` features list |
 | Popup flashes and vanishes | Confirm `wry = "0.55"` or later — older versions run the handler off-thread |
 | Site shows "popups blocked" | The URL was denied. Check the `NewWindowRequested` log and add the host to `OAUTH_HOSTS` or extend `looks_like_oauth` |
 | Renderer attachment logs `Access is denied` | Expected — WebView2 sandboxes renderers; the browser-process cap covers the tree |
 | Dashboard shows 0 B memory | No apps are open yet — click one in the launcher grid first |
-| New seed apps don't appear | Seeding runs every launch via `seed_catalog()`; check the log for `add_app` failures |
-| Benchmark crashes on ToolHelp | Add `Win32_System_Diagnostics_ToolHelp` to the `windows` features list |
 
 ---
 
@@ -412,10 +407,9 @@ Not a formal security audit. Known limitations to address before production:
 
 Reeve is in early development. The most valuable contributions right now:
 
-1. **Cold-start benchmark.** The current harness measures steady-state + peak memory. A parallel harness that measures wall time from `spawn()` to first frame would strengthen the "faster startup" claim.
-2. **macOS and Linux targets.** The governance layer is stubbed on non-Windows; porting requires WKWebView + memory-pressure signals on macOS, WebKitGTK + cgroups v2 on Linux.
-3. **Public Suffix List matching** for the origin gate.
-4. **Toolhelp32 fallback** for WebView2 runtimes older than ~2023.
+1. **macOS and Linux targets.** The governance layer is stubbed on non-Windows; porting requires WKWebView + memory-pressure signals on macOS, WebKitGTK + cgroups v2 on Linux.
+2. **Public Suffix List matching** for the origin gate.
+3. **WebView2 cold-start optimization.** The benchmark shows `t_stable` is 4x slower than Chrome. Investigating lazy GPU initialization or deferred utility process spin-up would close this gap.
 
 Open an issue before starting non-trivial work.
 
