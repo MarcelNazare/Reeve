@@ -2713,9 +2713,10 @@ dependencies = [
 
 [[package]]
 name = "reeve"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "directories",
  "notify-rust",
  "open",

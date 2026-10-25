@@ -8,6 +8,7 @@ use crate::governor::win::{
 use crate::instance::{AppInstance, Lifecycle};
 use crate::manifest;
 use anyhow::{anyhow, Result};
+use base64::{engine::general_purpose, Engine as _};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -50,6 +51,14 @@ struct DashboardWindow {
     memory_cache: HashMap<String, u64>,
 }
 
+#[derive(Serialize)]
+struct FrontendApp {
+    id: String,
+    name: String,
+    start_url: String,
+    icon_data_url: Option<String>,
+}
+
 const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
 <html>
 <head>
@@ -69,7 +78,6 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   .btn-dashboard:hover { background: var(--border); border-color: var(--border-hover); }
   .btn-dashboard svg { width: 16px; height: 16px; color: var(--accent); }
   
-  /* Add URL Form */
   .search-container { display: flex; align-items: center; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 6px; margin-bottom: 16px; transition: border-color 0.2s, box-shadow 0.2s; }
   .search-container:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 132, 255, 0.15); }
   .search-icon { margin-left: 16px; margin-right: 12px; color: var(--text-muted); display: flex; align-items: center; }
@@ -79,7 +87,6 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   .btn-add { background: var(--accent); color: #fff; border: none; padding: 10px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background 0.2s; }
   .btn-add:hover { background: var(--accent-hover); }
 
-  /* Filter Installed Apps */
   .filter-container { margin-bottom: 24px; }
   .filter-input { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; }
   .filter-input:focus { border-color: var(--accent); }
@@ -153,10 +160,8 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   }
   
   function iconHTML(app) {
-    if (app.icon_path) {
-      var path = app.icon_path.replace(/\\/g, '/');
-      if (!path.startsWith('/')) path = '/' + path;
-      return '<img class="icon" alt="" src="file://' + encodeURI(path) + '">';
+    if (app.icon_data_url) {
+      return '<img class="icon" alt="" src="' + app.icon_data_url + '" onerror="this.style.visibility=\'hidden\'">';
     }
     var host = hostOf(app.start_url);
     if (!host) return '<div class="icon"></div>';
@@ -369,12 +374,40 @@ struct DashboardProcess {
     memory_bytes: Option<u64>,
 }
 
+fn build_launcher_apps(catalog: &Catalog) -> Vec<FrontendApp> {
+    catalog.list_apps().unwrap_or_default().into_iter().map(|app| {
+        let icon_data_url = app.icon_path.and_then(|path_str| {
+            let path = std::path::Path::new(&path_str);
+            if path.exists() {
+                if let Ok(bytes) = std::fs::read(path) {
+                    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("png").to_lowercase();
+                    let mime = match ext.as_str() {
+                        "ico" => "image/x-icon",
+                        "svg" => "image/svg+xml",
+                        _ => "image/png",
+                    };
+                    let b64 = general_purpose::STANDARD.encode(&bytes);
+                    return Some(format!("data:{};base64,{}", mime, b64));
+                }
+            }
+            None
+        });
+
+        FrontendApp {
+            id: app.id,
+            name: app.name,
+            start_url: app.start_url,
+            icon_data_url,
+        }
+    }).collect()
+}
+
 pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor) -> Result<()> {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let proxy = event_loop.create_proxy();
 
-    let apps = catalog.list_apps()?;
-    let apps_json = serde_json::to_string(&apps)?;
+    let frontend_apps = build_launcher_apps(&catalog);
+    let apps_json = serde_json::to_string(&frontend_apps)?;
 
     let launcher_window = WindowBuilder::new()
         .with_title("Reeve")
@@ -409,6 +442,30 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
     let governor = Rc::new(governor);
     let catalog = Rc::new(catalog);
     let data_dir = env.data_dir.clone();
+
+    // Background thread: Fetch missing icons for seeded apps
+    {
+        let data_clone = data_dir.clone();
+        let proxy_clone = proxy.clone();
+        std::thread::spawn(move || {
+            if let Ok(cat) = Catalog::open(&data_clone.join("catalog.db")) {
+                if let Ok(apps) = cat.list_apps() {
+                    for app in apps {
+                        if app.icon_path.is_none() {
+                            tracing::info!(app_id = %app.id, "fetching missing icon for seeded app");
+                            if let Ok(md) = manifest::fetch_manifest_data(&app.start_url, &app.id, &data_clone) {
+                                let _ = proxy_clone.send_event(UserEvent::ManifestIngested {
+                                    app_id: app.id,
+                                    name: md.name,
+                                    icon_path: md.icon_path.map(|p| p.to_string_lossy().to_string()),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     let mut last_scan = Instant::now();
     let scan_interval = Duration::from_secs(3);
@@ -458,18 +515,17 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             Event::UserEvent(UserEvent::AddApp { url }) => {
                 match derive_app_from_url(&url) {
                     Ok((id, name, canonical)) => {
-                        let already = catalog.list_apps().unwrap_or_default().iter().any(|a| a.id == id || a.start_url == canonical);
+                        let already = catalog.list_apps().unwrap_or_default().iter().any(|a| a.start_url == canonical);
                         if already {
                             push_notice(&launcher_webview_opt, "Already installed", true);
                         } else if let Err(e) = catalog.add_app(&id, &name, &canonical) {
                             tracing::error!(?e, %id, "failed to add app");
                             push_notice(&launcher_webview_opt, "Failed to add app", true);
                         } else {
-                            if let Some(apps) = catalog.list_apps().ok() {
-                                if let Ok(json) = serde_json::to_string(&apps) {
-                                    if let Some(wv) = launcher_webview_opt.as_ref() {
-                                        let _ = wv.evaluate_script(&format!("window.__reeve_render({json})"));
-                                    }
+                            let frontend_apps = build_launcher_apps(&catalog);
+                            if let Ok(json) = serde_json::to_string(&frontend_apps) {
+                                if let Some(wv) = launcher_webview_opt.as_ref() {
+                                    let _ = wv.evaluate_script(&format!("window.__reeve_render({json})"));
                                 }
                             }
                             push_notice(&launcher_webview_opt, &format!("Added {name} (fetching icon...)"), false);
@@ -504,11 +560,10 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                     updated = true;
                 }
                 if updated {
-                    if let Some(apps) = catalog.list_apps().ok() {
-                        if let Ok(json) = serde_json::to_string(&apps) {
-                            if let Some(wv) = launcher_webview_opt.as_ref() {
-                                let _ = wv.evaluate_script(&format!("window.__reeve_render({json})"));
-                            }
+                    let frontend_apps = build_launcher_apps(&catalog);
+                    if let Ok(json) = serde_json::to_string(&frontend_apps) {
+                        if let Some(wv) = launcher_webview_opt.as_ref() {
+                            let _ = wv.evaluate_script(&format!("window.__reeve_render({json})"));
                         }
                     }
                 }
