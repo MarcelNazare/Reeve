@@ -4,7 +4,7 @@
 
 Reeve is a native PWA launcher for Windows. It replaces heavyweight Electron bundles and Chromium-per-app patterns with a single shared WebView2 runtime, kernel-enforced memory caps, and a capability-gated bridge that gives web apps native superpowers without sacrificing the sandbox.
 
-**v0.2.0** ships with a managed dashboard: live memory, editable permissions, and a per-app kill switch.
+**v0.3.0** ships with a completely redesigned UI and per-app memory attribution: live aggregate memory, precise per-app working sets, editable permissions, and a per-app kill switch.
 
 <p align="center">
   <img
@@ -49,13 +49,13 @@ Reeve is built on three pillars:
 
 **2. A native bridge with real capabilities.** Web apps request file-system access, native notifications, and other desktop features through a capability-gated IPC bridge. Every call is validated against a per-app manifest — capability check, scope check, origin check — before the native function executes. Nothing is granted by default.
 
-**3. A managed dashboard.** Live memory, editable permission grants, per-app kill switch. The savings are visible; the control is real.
+**3. A managed dashboard.** Live aggregate memory, **per-app memory attribution**, editable permission grants, and a per-app kill switch. The savings are visible; the control is real.
 
 ---
 
 ## Why It Matters
 
-**For users.** Old laptops feel new again. Battery life extends because you are not running five browser engines. Memory is capped at the kernel level, so one runaway app cannot starve the others. When something misbehaves, the dashboard shows it and stops it in one click.
+**For users.** Old laptops feel new again. Battery life extends because you are not running five browser engines. Memory is capped at the kernel level, so one runaway app cannot starve the others. When something misbehaves, the dashboard shows exactly how much memory it's using and stops it in one click.
 
 **For developers.** Build one PWA that works everywhere. Get desktop-grade capabilities through a predictable, documented bridge — without bundling Chromium and without learning a new framework.
 
@@ -94,7 +94,7 @@ Every renderer is attached to the Job Object via `ICoreWebView2Environment13::Ge
 
 The governor talks to the Job Object API **directly through the `windows` crate** (`CreateJobObjectW` + `SetInformationJobObject` + `AssignProcessToJobObject`), not through a third-party wrapper.
 
-The dashboard is a second WebView in the same `WebContext`, so it sees the entire WebView2 process tree via `GetProcessInfos` — the honest aggregate number that proves the RAM story.
+The dashboard is a second WebView in the same `WebContext`, so it sees the entire WebView2 process tree. It uses `GetProcessExtendedInfos` to map renderer PIDs to frame URLs, attributing memory usage to the correct app.
 
 ---
 
@@ -102,6 +102,8 @@ The dashboard is a second WebView in the same `WebContext`, so it sees the entir
 
 **Working end-to-end:**
 
+- ✅ **Redesigned UI:** Dark-first aesthetic, modern search bar, hover states, and clean data tables.
+- ✅ **Per-app memory attribution:** Dashboard maps WebView2 renderers to apps via `GetProcessExtendedInfos`.
 - ✅ Launcher UI with search bar, app grid, URL-based install
 - ✅ 30 seeded PWAs across productivity, communication, media, Google Workspace, dev tools, social
 - ✅ Idempotent seeding — new seed entries appear on next launch without a DB wipe
@@ -115,7 +117,7 @@ The dashboard is a second WebView in the same `WebContext`, so it sees the entir
 - ✅ Session tracking (start on spawn, end on window close)
 - ✅ Smart popup handling: OAuth and same-brand popups open as managed windows; external links route to the system browser
 - ✅ URL search bar with dedup against id and start_url
-- ✅ **Dashboard with live memory, editable permissions, and kill switch**
+- ✅ **Dashboard with live aggregate memory, per-app memory, editable permissions, and kill switch**
 - ✅ Embedded `.exe` icon (`winres`) and per-app favicons in the grid
 
 **Not yet implemented:**
@@ -125,7 +127,6 @@ The dashboard is a second WebView in the same `WebContext`, so it sees the entir
 - ⏳ macOS and Linux targets
 - ⏳ `sessions.peak_mem_bytes` populated from live Job Object stats
 - ⏳ Toolhelp32 fallback for older WebView2 runtimes
-- ⏳ Per-app memory attribution (blocked by WebView2's environment-wide API)
 
 ---
 
@@ -170,7 +171,7 @@ make clippy   # lint with warnings as errors
 
 **Make on Windows:** run `make` from **Git Bash** or **MSYS2**, not `cmd.exe`. The `run` target sets `RUST_LOG` with POSIX shell syntax. From PowerShell, edit the `run` target to `$$env:RUST_LOG="info,reeve=debug"; $(CARGO) run`.
 
-On first launch, Reeve opens with 30 seeded apps. Click one to spawn a window in the shared environment. Open five of them and check Task Manager → Details: there should be **one** `msedgewebview2.exe` browser process, plus one renderer per app.
+On first launch, Reeve opens with 30 seeded apps in the new dark UI. Click one to spawn a window in the shared environment. Open five of them and check Task Manager → Details: there should be **one** `msedgewebview2.exe` browser process, plus one renderer per app.
 
 Data directory:
 
@@ -193,7 +194,7 @@ cargo run
 
 ### Via the launcher
 
-Paste a URL into the search bar at the top of the launcher and press **Add**. Reeve accepts:
+Paste a URL into the new search bar at the top of the launcher and press **Add**. Reeve accepts:
 
 - `linear.app` (bare host — `https://` is prepended)
 - `https://app.notion.com/some/path` (path preserved)
@@ -215,7 +216,7 @@ Seeding runs on every launch and is idempotent (`INSERT OR REPLACE` on `id`, `IN
 
 ## Dashboard
 
-Click **Dashboard** in the launcher header. A second window opens, sharing the same WebView2 environment.
+Click **Dashboard** in the launcher header. A second window opens, sharing the same WebView2 environment. The dashboard features a clean, dark-mode data table layout.
 
 ### Live memory
 
@@ -223,8 +224,7 @@ Every 2 seconds, the dashboard queries `ICoreWebView2Environment13::GetProcessIn
 
 - **Total WebView2 memory** — sum of working set across browser, GPU, and every renderer. This is the number that matters for the "one engine, many apps" story.
 - **Per-kind breakdown** — a chip per process kind showing its share.
-
-Per-app memory is **deliberately not** attributed, because WebView2's environment-wide API doesn't map renderers to controllers. The dashboard tells the truth: aggregate memory is what the OS sees, and it's the same number the benchmark will report.
+- **Per-app memory** — a dedicated column in the app table showing the memory used by each app. This is derived asynchronously via `GetProcessExtendedInfos`, matching frame URLs to app origins. Apps sharing a renderer process may show combined usage.
 
 ### Permission editor
 
@@ -385,9 +385,10 @@ reeve/
 | Popup classification (OAuth, same-brand, query heuristic) | ✅ |
 | 30-app seed catalog, idempotent | ✅ |
 | Embedded `.exe` icon + per-app favicons | ✅ |
-| Dashboard: live memory, permission editor, kill switch | ✅ |
+| Redesigned UI (dark-first, native feel) | ✅ |
+| Dashboard: aggregate memory, permission editor, kill switch | ✅ |
+| **Per-app memory attribution** | ✅ |
 | PWA manifest ingestion (icon, name from manifest.json) | ⏳ |
-| Per-app memory attribution | ⏳ (blocked by WebView2 API) |
 | `sessions.peak_mem_bytes` from live Job Object stats | ⏳ |
 | Benchmark harness (Electron vs Reeve vs Chrome tabs) | ⏳ |
 | macOS target (WKWebView, soft memory limits) | ⏳ |
@@ -428,6 +429,7 @@ Not a formal security audit. Known limitations to address before production:
 - **No audit log.** Bridge calls should be persisted for post-incident review.
 - **WebView2 renderers are in a private job.** Per-process memory limits apply only to processes Reeve can attach; the job-wide cap on the browser process covers the rest.
 - **Kill switch is not a security boundary.** It's a UX tool for stopping misbehaving apps. A malicious app could re-open itself via the launcher before you can kill it — the actual containment is the Job Object cap, not the kill button.
+- **Per-app memory attribution is approximate.** WebView2 places frames of the same origin in shared renderers. Memory is attributed to the first matching app frame.
 
 ---
 
@@ -479,4 +481,4 @@ Reeve stands on the shoulders of:
 
 The shared-runtime model was inspired by the observation that modern desktop apps are just web apps with a browser bundled inside. Reeve removes the bundle.
 
-The dashboard's honest aggregate memory metric was a deliberate choice: WebView2 doesn't expose per-controller memory attribution, so rather than fabricate per-app numbers, Reeve shows what the OS actually sees. The savings are real; the dashboard proves it without lying about the granularity.
+The dashboard's per-app memory metric uses `GetProcessExtendedInfos` to map frame URLs to app origins. When apps share a renderer (same origin), memory is attributed to the first matching app — the honest tradeoff for a system that otherwise sees only the aggregate.

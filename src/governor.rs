@@ -3,7 +3,8 @@ pub mod win {
     use anyhow::{anyhow, Result};
     use serde::Serialize;
     use webview2_com::Microsoft::Web::WebView2::Win32::*;
-    use windows::core::Interface;
+    use webview2_com::GetProcessExtendedInfosCompletedHandler;
+    use windows::core::{Interface, PWSTR, BOOL};
     use windows::Win32::Foundation::{CloseHandle, HANDLE};
     use windows::Win32::System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
@@ -19,7 +20,6 @@ pub mod win {
         PROCESS_TERMINATE,
     };
     use wry::{WebView, WebViewExtWindows};
-
     pub struct Governor {
         job: HANDLE,
     }
@@ -92,6 +92,12 @@ pub mod win {
         pub memory_bytes: Option<u64>,
     }
 
+    #[derive(Debug, Clone, Serialize)]
+    pub struct AppMemoryUsage {
+        pub app_id: String,
+        pub memory_bytes: u64,
+    }
+
     pub fn query_process_memory(pid: u32) -> Option<u64> {
         unsafe {
             let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
@@ -160,6 +166,133 @@ pub mod win {
         Ok(result)
     }
 
+    pub fn query_app_memory_async(
+        webview: &WebView,
+        app_urls: Vec<(String, String)>,
+        callback: Box<dyn FnOnce(Vec<AppMemoryUsage>) + Send>,
+    ) -> Result<()> {
+        let controller = webview.controller();
+        let core = unsafe { controller.CoreWebView2()? };
+        let core2: ICoreWebView2_2 = core.cast()?;
+        let env = unsafe { core2.Environment()? };
+        let env13: ICoreWebView2Environment13 = env.cast()?;
+
+        let handler = GetProcessExtendedInfosCompletedHandler::create(Box::new(
+            move |error, collection| -> windows::core::Result<()> {
+                let mut usage = Vec::new();
+
+                if error.is_err() {
+                    callback(usage);
+                    return Ok(());
+                }
+
+                let collection = match collection {
+                    Some(c) => c,
+                    None => {
+                        callback(usage);
+                        return Ok(());
+                    }
+                };
+
+                let mut count = 0;
+                if unsafe { collection.Count(&mut count) }.is_err() {
+                    callback(usage);
+                    return Ok(());
+                }
+
+                for i in 0..count {
+                    let info = match unsafe { collection.GetValueAtIndex(i) } {
+                        Ok(i) => i,
+                        Err(_) => continue,
+                    };
+                    let process_info = match unsafe { info.ProcessInfo() } {
+                        Ok(p) => p,
+                        Err(_) => continue,
+                    };
+
+                    let mut kind = unsafe { core::mem::zeroed::<COREWEBVIEW2_PROCESS_KIND>() };
+                    if unsafe { process_info.Kind(&mut kind) }.is_err() {
+                        continue;
+                    }
+                    if kind != COREWEBVIEW2_PROCESS_KIND_RENDERER {
+                        continue;
+                    }
+
+                    let mut pid_i32 = 0;
+                    if unsafe { process_info.ProcessId(&mut pid_i32) }.is_err() {
+                        continue;
+                    }
+                    let mem = match query_process_memory(pid_i32 as u32) {
+                        Some(m) => m,
+                        None => continue,
+                    };
+
+                    let frames = match unsafe { info.AssociatedFrameInfos() } {
+                        Ok(f) => f,
+                        Err(_) => continue,
+                    };
+
+                    // ICoreWebView2FrameInfoCollection uses an iterator,
+                    // not Count/GetValueAtIndex.
+                    let iterator = match unsafe { frames.GetIterator() } {
+                        Ok(it) => it,
+                        Err(_) => continue,
+                    };
+
+                    let mut has_current = BOOL(0);
+                    if unsafe { iterator.HasCurrent(&mut has_current) }.is_err() {
+                        continue;
+                    }
+
+                    while has_current.as_bool() {
+                        let frame = match unsafe { iterator.GetCurrent() } {
+                            Ok(f) => f,
+                            Err(_) => break,
+                        };
+
+                        let mut source = PWSTR::null();
+                        if unsafe { frame.Source(&mut source) }.is_err() {
+                            if unsafe { iterator.MoveNext(&mut has_current) }.is_err() {
+                                break;
+                            }
+                            continue;
+                        }
+
+                        let url = match unsafe { source.to_string() } {
+                            Ok(u) => u,
+                            Err(_) => {
+                                if unsafe { iterator.MoveNext(&mut has_current) }.is_err() {
+                                    break;
+                                }
+                                continue;
+                            }
+                        };
+
+                        if let Some((app_id, _)) = app_urls.iter().find(|(_, app_url)| {
+                            url.starts_with(app_url) || app_url.starts_with(&url)
+                        }) {
+                            usage.push(AppMemoryUsage {
+                                app_id: app_id.clone(),
+                                memory_bytes: mem,
+                            });
+                            break; // Done with this process
+                        }
+
+                        if unsafe { iterator.MoveNext(&mut has_current) }.is_err() {
+                            break;
+                        }
+                    }
+                }
+
+                callback(usage);
+                Ok(())
+            },
+        ));
+
+        unsafe { env13.GetProcessExtendedInfos(&handler)? };
+        Ok(())
+    }
+
     pub fn enumerate_and_attach_renderers(
         governor: &Governor,
         webview: &WebView,
@@ -178,10 +311,7 @@ pub mod win {
         for i in 0..count {
             let info = match unsafe { collection.GetValueAtIndex(i) } {
                 Ok(info) => info,
-                Err(e) => {
-                    tracing::debug!(?e, index = i, "skipping process info");
-                    continue;
-                }
+                Err(_) => continue,
             };
 
             let mut pid_i32: i32 = 0;
@@ -225,7 +355,6 @@ pub mod win {
     use wry::WebView;
 
     pub struct Governor;
-
     impl Governor {
         pub fn new(_per_process_bytes: usize, _total_bytes: usize) -> Result<Self> {
             Ok(Self)
@@ -252,8 +381,23 @@ pub mod win {
         pub memory_bytes: Option<u64>,
     }
 
+    #[derive(Debug, Clone, Serialize)]
+    pub struct AppMemoryUsage {
+        pub app_id: String,
+        pub memory_bytes: u64,
+    }
+
     pub fn snapshot_processes(_webview: &WebView) -> Result<Vec<ProcessSnapshot>> {
         Ok(vec![])
+    }
+
+    pub fn query_app_memory_async(
+        _webview: &WebView,
+        _app_urls: Vec<(String, String)>,
+        callback: Box<dyn FnOnce(Vec<AppMemoryUsage>) + Send>,
+    ) -> Result<()> {
+        callback(vec![]);
+        Ok(())
     }
 
     pub fn enumerate_and_attach_renderers(
