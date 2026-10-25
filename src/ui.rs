@@ -68,7 +68,9 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   .btn-dashboard { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border); padding: 10px 16px; border-radius: 8px; color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: inherit; }
   .btn-dashboard:hover { background: var(--border); border-color: var(--border-hover); }
   .btn-dashboard svg { width: 16px; height: 16px; color: var(--accent); }
-  .search-container { display: flex; align-items: center; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 6px; margin-bottom: 32px; transition: border-color 0.2s, box-shadow 0.2s; }
+  
+  /* Add URL Form */
+  .search-container { display: flex; align-items: center; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 6px; margin-bottom: 16px; transition: border-color 0.2s, box-shadow 0.2s; }
   .search-container:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 132, 255, 0.15); }
   .search-icon { margin-left: 16px; margin-right: 12px; color: var(--text-muted); display: flex; align-items: center; }
   .search-icon svg { width: 20px; height: 20px; }
@@ -76,16 +78,26 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   .search-input::placeholder { color: var(--text-muted); }
   .btn-add { background: var(--accent); color: #fff; border: none; padding: 10px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background 0.2s; }
   .btn-add:hover { background: var(--accent-hover); }
+
+  /* Filter Installed Apps */
+  .filter-container { margin-bottom: 24px; }
+  .filter-input { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; }
+  .filter-input:focus { border-color: var(--accent); }
+  .filter-input::placeholder { color: var(--text-muted); }
+
   .notice { min-height: 20px; font-size: 13px; margin-bottom: 24px; text-align: center; opacity: 0; transition: opacity 0.2s; }
   .notice.active { opacity: 1; }
   .notice.ok { color: #34c759; }
   .notice.error { color: #ff453a; }
+  
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
   .app { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: flex-start; position: relative; overflow: hidden; }
   .app:hover { background: #1a1a20; border-color: var(--border-hover); transform: translateY(-2px); }
   .app .icon { width: 40px; height: 40px; margin-bottom: 16px; border-radius: 10px; display: block; background: #25252b; object-fit: contain; }
   .app .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
   .app .url { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+  
+  .empty { color: var(--text-muted); font-size: 13px; padding: 40px 0; text-align: center; display: none; }
 </style>
 </head>
 <body>
@@ -96,19 +108,50 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
       Dashboard
     </button>
   </div>
+  
   <form class="search-container" id="add-form" onsubmit="return addApp(event)">
     <div class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></div>
     <input id="add-input" class="search-input" type="url" placeholder="Paste a PWA link (e.g. https://linear.app)" autocomplete="off" spellcheck="false" />
     <button class="btn-add" type="submit">Add</button>
   </form>
-  <div id="notice" class="notice"></div>
+  
+  <div class="notice" id="notice"></div>
+
+  <div class="filter-container">
+    <input id="filter-input" class="filter-input" type="text" placeholder="Search installed apps..." autocomplete="off" />
+  </div>
+
   <div class="grid" id="grid"></div>
+  <p class="empty" id="empty">No apps found.</p>
+
 <script>
+  window.__allApps = [];
+
   function launch(id) { window.ipc.postMessage(JSON.stringify({cmd:'launch', app_id:id})); }
   function openDashboard() { window.ipc.postMessage(JSON.stringify({cmd:'open_dashboard'})); }
-  function addApp(e) { e.preventDefault(); var input = document.getElementById('add-input'); var url = input.value.trim(); if (!url) return false; window.ipc.postMessage(JSON.stringify({ cmd: 'add_app', url: url })); input.value = ''; return false; }
-  function notice(msg, isError) { var el = document.getElementById('notice'); el.textContent = msg; el.className = 'notice active ' + (isError ? 'error' : 'ok'); clearTimeout(window.__noticeTimer); window.__noticeTimer = setTimeout(function() { el.className = 'notice'; }, 4000); }
-  function hostOf(url) { try { return new URL(url).hostname; } catch (e) { return ''; } }
+  
+  function addApp(e) {
+    e.preventDefault();
+    var input = document.getElementById('add-input');
+    var url = input.value.trim();
+    if (!url) return false;
+    window.ipc.postMessage(JSON.stringify({ cmd: 'add_app', url: url }));
+    input.value = '';
+    return false;
+  }
+  
+  function notice(msg, isError) {
+    var el = document.getElementById('notice');
+    el.textContent = msg;
+    el.className = 'notice active ' + (isError ? 'error' : 'ok');
+    clearTimeout(window.__noticeTimer);
+    window.__noticeTimer = setTimeout(function() { el.className = 'notice'; }, 4000);
+  }
+  
+  function hostOf(url) {
+    try { return new URL(url).hostname; } catch (e) { return ''; }
+  }
+  
   function iconHTML(app) {
     if (app.icon_path) {
       var path = app.icon_path.replace(/\\/g, '/');
@@ -120,14 +163,41 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
     var src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=128';
     return '<img class="icon" alt="" src="' + src + '" onerror="this.style.visibility=\'hidden\'">';
   }
-  function render(apps) {
+
+  function renderFiltered() {
+    var query = document.getElementById('filter-input').value.toLowerCase();
+    var filtered = window.__allApps.filter(function(app) {
+      return app.name.toLowerCase().includes(query) || 
+             app.start_url.toLowerCase().includes(query);
+    });
+
     var grid = document.getElementById('grid');
-    grid.innerHTML = apps.map(function(a) {
-      return '<div class="app" onclick="launch(\'' + a.id + '\')">' + iconHTML(a) + '<div class="name">' + a.name + '</div><div class="url">' + a.start_url + '</div></div>';
+    var empty = document.getElementById('empty');
+
+    if (filtered.length === 0) {
+      grid.innerHTML = '';
+      empty.style.display = 'block';
+      empty.textContent = query ? 'No installed apps match your search.' : 'No apps installed yet.';
+      return;
+    }
+
+    empty.style.display = 'none';
+    grid.innerHTML = filtered.map(function(a) {
+      return '<div class="app" onclick="launch(\'' + a.id + '\')">' + 
+        iconHTML(a) + 
+        '<div class="name">' + a.name + '</div>' + 
+        '<div class="url">' + a.start_url + '</div></div>';
     }).join('');
   }
-  window.__reeve_render = render;
+
+  window.__reeve_render = function(apps) {
+    window.__allApps = apps;
+    renderFiltered();
+  };
+  
   window.__reeve_notice = notice;
+
+  document.getElementById('filter-input').addEventListener('input', renderFiltered);
 </script>
 </body>
 </html>"##;

@@ -91,7 +91,7 @@ Every renderer is attached to the Job Object via `ICoreWebView2Environment13::Ge
 
 **Working end-to-end:**
 
-- ✅ **Launcher UI:** Modern dark theme, search bar with URL-based install, and app grid.
+- ✅ **Launcher UI:** Modern dark theme, URL-based install, and a real-time search/filter bar.
 - ✅ **Manifest Ingestion:** Fetches `manifest.json` for real app names and locally caches high-res icons.
 - ✅ **Shared Runtime:** One WebView2 browser process across all apps.
 - ✅ **Job Object Governor:** Kernel-enforced per-process and job-wide memory caps.
@@ -167,7 +167,7 @@ Data directory:
 ## Adding Apps
 
 ### Via the launcher
-Paste a URL into the search bar and press **Add**. Reeve immediately records the app, then spawns a background thread that:
+Paste a URL into the top search bar and press **Add**. Reeve immediately records the app, then spawns a background thread that:
 1. Fetches the page HTML and locates `<link rel="manifest">`.
 2. Parses the `manifest.json`.
 3. Extracts the real app name.
@@ -180,6 +180,12 @@ Edit `seed_catalog()` in `src/main.rs` and add:
 catalog.add_app("myapp", "My App", "https://myapp.example")?;
 ```
 Seeding runs on every launch and is idempotent (`INSERT OR REPLACE` on `id`, `INSERT OR IGNORE` on permissions). New entries appear on the next launch.
+
+---
+
+## Search
+
+The launcher includes a dedicated filter bar below the URL input. Type any part of an app's name or URL to instantly filter the grid. The filter runs entirely in the frontend against the cached app list, so it responds on every keystroke without touching the database.
 
 ---
 
@@ -397,7 +403,7 @@ reeve/
     ├── bridge.rs           # capability checks + native dispatch
     ├── instance.rs         # app lifecycle state machine
     ├── manifest.rs         # PWA manifest ingestion (fetch, parse, download icon)
-    ├── ui.rs               # launcher, dashboard, IPC, popups, URL install
+    ├── ui.rs               # launcher, dashboard, IPC, popups, URL install, search
     └── bin/
         └── benchmark.rs    # entry point for the benchmark harness
 ```
@@ -446,6 +452,7 @@ reeve/
 | `sessions.peak_mem_bytes` from live Job Object stats | ✅ |
 | Benchmark harness (Electron vs Reeve vs Chrome tabs) | ✅ |
 | Cold-start benchmark | ✅ |
+| **Installed app search / filter** | ✅ |
 | macOS target (WKWebView, soft memory limits) | ⏳ |
 | Linux target (WebKitGTK, cgroups v2) | ⏳ |
 
