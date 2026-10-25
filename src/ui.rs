@@ -2,15 +2,16 @@ use crate::bridge::Bridge;
 use crate::catalog::{AppRecord, Catalog};
 use crate::environment::SharedEnvironment;
 use crate::governor::win::{
-    enumerate_and_attach_renderers, query_app_memory_async, snapshot_processes, AppMemoryUsage,
-    Governor, ProcessKind, ProcessSnapshot,
+    enumerate_and_attach_renderers, query_app_memory_async, query_job_stats, snapshot_processes,
+    AppMemoryUsage, Governor, ProcessKind, ProcessSnapshot,
 };
 use crate::instance::{AppInstance, Lifecycle};
+use crate::manifest;
 use anyhow::{anyhow, Result};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tao::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
@@ -22,12 +23,13 @@ use wry::{NewWindowResponse, WebContext, WebView, WebViewBuilder};
 pub enum UserEvent {
     Launch(String),
     AddApp { url: String },
+    ManifestIngested { app_id: String, name: Option<String>, icon_path: Option<String> },
     BridgeResponse { window_id: WindowId, script: String },
-    
+
     OpenDashboard,
     DashboardRefresh,
-    DashboardMemoryResult(Vec<AppMemoryUsage>),
-    
+    MemoryPollResult(Vec<AppMemoryUsage>),
+
     DashboardKill { app_id: String },
     DashboardLaunch { app_id: String },
     DashboardGrant { app_id: String, capability: String, scope: String },
@@ -39,13 +41,13 @@ struct AppWindow {
     webview: WebView,
     instance: AppInstance,
     started_at: Instant,
+    peak_memory: u64,
 }
 
 struct DashboardWindow {
     _window: Window,
     webview: WebView,
     memory_cache: HashMap<String, u64>,
-    is_querying: bool,
 }
 
 const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
@@ -107,8 +109,23 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   function addApp(e) { e.preventDefault(); var input = document.getElementById('add-input'); var url = input.value.trim(); if (!url) return false; window.ipc.postMessage(JSON.stringify({ cmd: 'add_app', url: url })); input.value = ''; return false; }
   function notice(msg, isError) { var el = document.getElementById('notice'); el.textContent = msg; el.className = 'notice active ' + (isError ? 'error' : 'ok'); clearTimeout(window.__noticeTimer); window.__noticeTimer = setTimeout(function() { el.className = 'notice'; }, 4000); }
   function hostOf(url) { try { return new URL(url).hostname; } catch (e) { return ''; } }
-  function iconHTML(url) { var host = hostOf(url); if (!host) return '<div class="icon"></div>'; var src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=128'; return '<img class="icon" alt="" src="' + src + '" onerror="this.style.visibility=\'hidden\'">'; }
-  function render(apps) { var grid = document.getElementById('grid'); grid.innerHTML = apps.map(function(a) { return '<div class="app" onclick="launch(\'' + a.id + '\')">' + iconHTML(a.start_url) + '<div class="name">' + a.name + '</div><div class="url">' + a.start_url + '</div></div>'; }).join(''); }
+  function iconHTML(app) {
+    if (app.icon_path) {
+      var path = app.icon_path.replace(/\\/g, '/');
+      if (!path.startsWith('/')) path = '/' + path;
+      return '<img class="icon" alt="" src="file://' + encodeURI(path) + '">';
+    }
+    var host = hostOf(app.start_url);
+    if (!host) return '<div class="icon"></div>';
+    var src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(host) + '&sz=128';
+    return '<img class="icon" alt="" src="' + src + '" onerror="this.style.visibility=\'hidden\'">';
+  }
+  function render(apps) {
+    var grid = document.getElementById('grid');
+    grid.innerHTML = apps.map(function(a) {
+      return '<div class="app" onclick="launch(\'' + a.id + '\')">' + iconHTML(a) + '<div class="name">' + a.name + '</div><div class="url">' + a.start_url + '</div></div>';
+    }).join('');
+  }
   window.__reeve_render = render;
   window.__reeve_notice = notice;
 </script>
@@ -130,10 +147,11 @@ const DASHBOARD_HTML: &str = r##"<!DOCTYPE html>
   h2 { font-size: 16px; font-weight: 600; color: var(--text); margin: 32px 0 16px; }
   .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
   .sub { font-size: 14px; color: var(--text-muted); }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
   .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
   .stat .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600; }
   .stat .value { font-size: 28px; font-weight: 700; color: var(--text); }
+  .stat .value.accent { color: var(--accent); }
   table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
   th { text-align: left; padding: 12px 20px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; background: #18181d; font-weight: 600; }
   td { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
@@ -174,10 +192,14 @@ const DASHBOARD_HTML: &str = r##"<!DOCTYPE html>
   </div>
   <section class="stats">
     <div class="stat">
-      <div class="label">Total WebView2 memory</div>
+      <div class="label">Total now</div>
       <div class="value" id="stat-memory">—</div>
       <div class="processes" id="stat-procs"></div>
-      <div class="note">Per-app memory is derived from frame attribution. Apps sharing a renderer may show combined usage.</div>
+    </div>
+    <div class="stat">
+      <div class="label">Peak job memory</div>
+      <div class="value accent" id="stat-peak">—</div>
+      <div class="note">Highest committed memory ever seen by the shared Job Object</div>
     </div>
     <div class="stat"><div class="label">Open apps</div><div class="value" id="stat-open">—</div></div>
     <div class="stat"><div class="label">Installed apps</div><div class="value" id="stat-installed">—</div></div>
@@ -186,7 +208,7 @@ const DASHBOARD_HTML: &str = r##"<!DOCTYPE html>
   <table>
     <thead>
       <tr>
-        <th>App</th><th>Status</th><th>Uptime</th><th>Memory</th><th>Permissions</th><th>Actions</th>
+        <th>App</th><th>Status</th><th>Uptime</th><th>Memory</th><th>Peak (session)</th><th>Permissions</th><th>Actions</th>
       </tr>
     </thead>
     <tbody id="app-rows"></tbody>
@@ -219,20 +241,22 @@ const DASHBOARD_HTML: &str = r##"<!DOCTYPE html>
   function submitPerm(e) { e.preventDefault(); window.ipc.postMessage(JSON.stringify({ cmd:'dashboard_grant', app_id: document.getElementById('perm-app-id').value, capability: document.getElementById('perm-cap').value, scope: document.getElementById('perm-scope').value })); document.getElementById('perm-modal').close(); return false; }
   function render(data) {
     document.getElementById('stat-memory').textContent = fmtBytes(data.total_memory_bytes);
+    document.getElementById('stat-peak').textContent = data.peak_job_memory != null ? fmtBytes(data.peak_job_memory) : '—';
     document.getElementById('stat-open').textContent = data.apps.filter(function(a) { return a.is_open; }).length;
     document.getElementById('stat-installed').textContent = data.apps.length;
     var procs = data.processes.map(function(p) { return '<span>' + p.kind + ' <strong>' + fmtBytes(p.memory_bytes || 0) + '</strong></span>'; }).join('');
     document.getElementById('stat-procs').innerHTML = procs || '<span class="muted">no processes</span>';
     var tbody = document.getElementById('app-rows');
-    if (!data.apps.length) { tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center; padding: 40px;">No apps installed</td></tr>'; return; }
+    if (!data.apps.length) { tbody.innerHTML = '<tr><td colspan="7" class="muted" style="text-align:center; padding: 40px;">No apps installed</td></tr>'; return; }
     tbody.innerHTML = data.apps.map(function(app) {
       var status = app.is_open ? '<span class="badge badge-open">Open</span>' : '<span class="badge badge-closed">Closed</span>';
       var uptime = app.is_open && app.uptime_secs != null ? fmtUptime(app.uptime_secs) : '—';
       var mem = app.memory_bytes != null ? fmtBytes(app.memory_bytes) : '—';
+      var peak = app.peak_session_bytes != null ? fmtBytes(app.peak_session_bytes) : '—';
       var permHtml = app.permissions.map(function(p) { var label = p.scope ? p.capability + ': ' + p.scope : p.capability; return '<span class="perm-chip">' + esc(label) + '<button title="Revoke" onclick="revoke(\'' + esc(app.id) + '\',\'' + esc(p.capability) + '\',\'' + esc(p.scope) + '\')">&times;</button></span>'; }).join('');
       permHtml += ' <button class="btn-sm btn-add" onclick="openPermModal(\'' + esc(app.id) + '\')">+ Add</button>';
       var action = app.is_open ? '<button class="btn-sm btn-danger" onclick="killApp(\'' + esc(app.id) + '\')">Kill</button>' : '<button class="btn-sm btn-primary" onclick="launchApp(\'' + esc(app.id) + '\')">Launch</button>';
-      return '<tr><td><div class="name">' + esc(app.name) + '</div><div class="url">' + esc(app.url) + '</div></td><td>' + status + '</td><td>' + uptime + '</td><td>' + mem + '</td><td>' + (permHtml || '<span class="muted">none</span>') + '</td><td>' + action + '</td></tr>';
+      return '<tr><td><div class="name">' + esc(app.name) + '</div><div class="url">' + esc(app.url) + '</div></td><td>' + status + '</td><td>' + uptime + '</td><td>' + mem + '</td><td>' + peak + '</td><td>' + (permHtml || '<span class="muted">none</span>') + '</td><td>' + action + '</td></tr>';
     }).join('');
   }
   window.__reeve_dashboard = render;
@@ -244,6 +268,7 @@ const DASHBOARD_HTML: &str = r##"<!DOCTYPE html>
 #[derive(Serialize)]
 struct DashboardData {
     total_memory_bytes: u64,
+    peak_job_memory: Option<u64>,
     process_count: u32,
     apps: Vec<DashboardApp>,
     processes: Vec<DashboardProcess>,
@@ -256,8 +281,9 @@ struct DashboardApp {
     url: String,
     is_open: bool,
     uptime_secs: Option<u64>,
-    permissions: Vec<DashboardPermission>,
     memory_bytes: Option<u64>,
+    peak_session_bytes: Option<u64>,
+    permissions: Vec<DashboardPermission>,
 }
 
 #[derive(Serialize)]
@@ -312,15 +338,33 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
     let mut dashboard: Option<DashboardWindow> = None;
     let governor = Rc::new(governor);
     let catalog = Rc::new(catalog);
+    let data_dir = env.data_dir.clone();
 
     let mut last_scan = Instant::now();
-    let scan_interval = std::time::Duration::from_secs(3);
+    let scan_interval = Duration::from_secs(3);
 
     let mut last_dashboard_push = Instant::now();
-    let dashboard_push_interval = std::time::Duration::from_secs(2);
+    let dashboard_push_interval = Duration::from_secs(2);
+
+    let mut last_memory_poll = Instant::now();
+    let memory_poll_interval = Duration::from_secs(5);
+    let mut memory_query_in_flight = false;
+    let mut memory_query_started = Instant::now();
+
+    // Benchmark auto-launch: when REEVE_BENCH_AUTO_LAUNCH is set, queue a Launch
+    // for each comma-separated URL. Used only by the benchmark harness.
+    if let Ok(auto) = std::env::var("REEVE_BENCH_AUTO_LAUNCH") {
+        for url in auto.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            if let Ok((id, name, canonical)) = derive_app_from_url(url) {
+                let _ = catalog.add_app(&id, &name, &canonical);
+                let _ = proxy.send_event(UserEvent::Launch(id));
+            }
+        }
+        println!("REEVE_BENCH_READY");
+    }
 
     event_loop.run(move |event, event_loop, control_flow| {
-        *control_flow = ControlFlow::WaitUntil(Instant::now() + std::time::Duration::from_millis(500));
+        *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(500));
 
         match event {
             Event::UserEvent(UserEvent::Launch(app_id)) => {
@@ -337,7 +381,7 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                     Ok((window, webview, mut instance, started_at)) => {
                         instance.transition(Lifecycle::Ready);
                         tracing::info!(app_id = %app.id, session = instance.session_id, "app spawned");
-                        app_windows.insert(window.id(), AppWindow { window, webview, instance, started_at });
+                        app_windows.insert(window.id(), AppWindow { window, webview, instance, started_at, peak_memory: 0 });
                     }
                     Err(e) => tracing::error!(?e, %app_id, "failed to spawn app"),
                 }
@@ -360,23 +404,58 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                                     }
                                 }
                             }
-                            push_notice(&launcher_webview_opt, &format!("Added {name}"), false);
+                            push_notice(&launcher_webview_opt, &format!("Added {name} (fetching icon...)"), false);
+
+                            let proxy_clone = proxy.clone();
+                            let data_clone = data_dir.clone();
+                            let id_clone = id.clone();
+                            let canonical_clone = canonical.clone();
+                            std::thread::spawn(move || {
+                                if let Ok(md) = manifest::fetch_manifest_data(&canonical_clone, &id_clone, &data_clone) {
+                                    let _ = proxy_clone.send_event(UserEvent::ManifestIngested {
+                                        app_id: id_clone,
+                                        name: md.name,
+                                        icon_path: md.icon_path.map(|p| p.to_string_lossy().to_string()),
+                                    });
+                                }
+                            });
                         }
                     }
                     Err(e) => push_notice(&launcher_webview_opt, &format!("Invalid URL: {e}"), true),
                 }
             }
 
+            Event::UserEvent(UserEvent::ManifestIngested { app_id, name, icon_path }) => {
+                let mut updated = false;
+                if let Some(n) = name {
+                    let _ = catalog.set_app_name(&app_id, &n);
+                    updated = true;
+                }
+                if let Some(p) = icon_path {
+                    let _ = catalog.set_icon_path(&app_id, &std::path::PathBuf::from(p));
+                    updated = true;
+                }
+                if updated {
+                    if let Some(apps) = catalog.list_apps().ok() {
+                        if let Ok(json) = serde_json::to_string(&apps) {
+                            if let Some(wv) = launcher_webview_opt.as_ref() {
+                                let _ = wv.evaluate_script(&format!("window.__reeve_render({json})"));
+                            }
+                        }
+                    }
+                }
+            }
+
             Event::UserEvent(UserEvent::OpenDashboard) => {
                 if let Some(d) = &dashboard {
                     let _ = d._window.set_focus();
-                    push_dashboard(d, &catalog, &app_windows);
+                    push_dashboard(d, &catalog, &app_windows, &governor);
                     return;
                 }
                 match spawn_dashboard_window(event_loop, &mut web_context, proxy.clone()) {
                     Ok(d) => {
                         tracing::info!("dashboard opened");
-                        push_dashboard(&d, &catalog, &app_windows);
+                        push_dashboard(&d, &catalog, &app_windows, &governor);
                         dashboard = Some(d);
                     }
                     Err(e) => tracing::error!(?e, "failed to open dashboard"),
@@ -385,15 +464,31 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
 
             Event::UserEvent(UserEvent::DashboardRefresh) => {
                 if let Some(d) = &dashboard {
-                    push_dashboard(d, &catalog, &app_windows);
+                    push_dashboard(d, &catalog, &app_windows, &governor);
                 }
             }
 
-            Event::UserEvent(UserEvent::DashboardMemoryResult(usage)) => {
+            Event::UserEvent(UserEvent::MemoryPollResult(usage)) => {
+                memory_query_in_flight = false;
+
+                // Aggregate per app (a single app may own multiple renderers).
+                let mut by_app: HashMap<String, u64> = HashMap::new();
+                for u in &usage {
+                    *by_app.entry(u.app_id.clone()).or_insert(0) += u.memory_bytes;
+                }
+
+                // Update per-session peaks — this is what feeds `sessions.peak_mem_bytes`.
+                for aw in app_windows.values_mut() {
+                    if let Some(&mem) = by_app.get(&aw.instance.app.id) {
+                        if mem > aw.peak_memory {
+                            aw.peak_memory = mem;
+                        }
+                    }
+                }
+
                 if let Some(d) = &mut dashboard {
-                    d.memory_cache = usage.into_iter().map(|u| (u.app_id, u.memory_bytes)).collect();
-                    d.is_querying = false;
-                    push_dashboard(d, &catalog, &app_windows);
+                    d.memory_cache = by_app;
+                    push_dashboard(d, &catalog, &app_windows, &governor);
                 }
             }
 
@@ -402,11 +497,25 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                 if let Some(window_id) = target {
                     if let Some(mut aw) = app_windows.remove(&window_id) {
                         aw.instance.transition(Lifecycle::Killed);
-                        if aw.instance.session_id >= 0 { let _ = catalog.end_session(aw.instance.session_id); }
+                        if aw.instance.session_id >= 0 {
+                            if aw.peak_memory > 0 {
+                                let _ = catalog.update_session_peak(aw.instance.session_id, aw.peak_memory);
+                            }
+                            if let Some(stats) = query_job_stats(&governor) {
+                                tracing::info!(
+                                    session_id = aw.instance.session_id,
+                                    app_peak = aw.peak_memory,
+                                    job_peak = stats.peak_job_memory,
+                                    job_active = stats.active_processes,
+                                    "session killed (peak cross-check)"
+                                );
+                            }
+                            let _ = catalog.end_session(aw.instance.session_id);
+                        }
                         tracing::info!(%app_id, "killed via dashboard");
                     }
                 }
-                if let Some(d) = &dashboard { push_dashboard(d, &catalog, &app_windows); }
+                if let Some(d) = &dashboard { push_dashboard(d, &catalog, &app_windows, &governor); }
             }
 
             Event::UserEvent(UserEvent::DashboardLaunch { app_id }) => {
@@ -419,7 +528,7 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                 } else {
                     tracing::info!(%app_id, %capability, %scope, "permission granted");
                 }
-                if let Some(d) = &dashboard { push_dashboard(d, &catalog, &app_windows); }
+                if let Some(d) = &dashboard { push_dashboard(d, &catalog, &app_windows, &governor); }
             }
 
             Event::UserEvent(UserEvent::DashboardRevoke { app_id, capability, scope }) => {
@@ -428,7 +537,7 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
                 } else {
                     tracing::info!(%app_id, %capability, %scope, "permission revoked");
                 }
-                if let Some(d) = &dashboard { push_dashboard(d, &catalog, &app_windows); }
+                if let Some(d) = &dashboard { push_dashboard(d, &catalog, &app_windows, &governor); }
             }
 
             Event::UserEvent(UserEvent::BridgeResponse { window_id, script }) => {
@@ -449,7 +558,21 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             Event::WindowEvent { event: WindowEvent::CloseRequested, window_id, .. } => {
                 if let Some(mut aw) = app_windows.remove(&window_id) {
                     aw.instance.transition(Lifecycle::Killed);
-                    if aw.instance.session_id >= 0 { let _ = catalog.end_session(aw.instance.session_id); }
+                    if aw.instance.session_id >= 0 {
+                        if aw.peak_memory > 0 {
+                            let _ = catalog.update_session_peak(aw.instance.session_id, aw.peak_memory);
+                        }
+                        if let Some(stats) = query_job_stats(&governor) {
+                            tracing::info!(
+                                session_id = aw.instance.session_id,
+                                app_peak = aw.peak_memory,
+                                job_peak = stats.peak_job_memory,
+                                job_active = stats.active_processes,
+                                "session closed (peak cross-check)"
+                            );
+                        }
+                        let _ = catalog.end_session(aw.instance.session_id);
+                    }
                     tracing::info!(app_id = %aw.instance.app.id, "app closed");
                 } else if dashboard.as_ref().map(|d| d._window.id()) == Some(window_id) {
                     tracing::info!("dashboard closed");
@@ -463,6 +586,7 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             _ => {}
         }
 
+        // --- periodic Job Object attach ---
         if last_scan.elapsed() >= scan_interval {
             last_scan = Instant::now();
             if let Some(aw) = app_windows.values().next() {
@@ -474,20 +598,37 @@ pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor
             }
         }
 
-        if let Some(d) = &mut dashboard {
+        // --- global memory poll: runs regardless of dashboard state ---
+        if memory_query_in_flight && memory_query_started.elapsed() > Duration::from_secs(30) {
+            tracing::warn!("memory poll timed out; resetting in-flight flag");
+            memory_query_in_flight = false;
+        }
+        if !memory_query_in_flight && last_memory_poll.elapsed() >= memory_poll_interval {
+            let anchor = launcher_webview_opt.as_ref()
+                .or_else(|| dashboard.as_ref().map(|d| &d.webview))
+                .or_else(|| app_windows.values().next().map(|aw| &aw.webview));
+
+            if let Some(wv) = anchor {
+                last_memory_poll = Instant::now();
+                memory_query_started = Instant::now();
+                memory_query_in_flight = true;
+                let app_urls: Vec<(String, String)> = catalog.list_apps().unwrap_or_default()
+                    .into_iter().map(|a| (a.id, a.start_url)).collect();
+                let proxy_clone = proxy.clone();
+                if let Err(e) = query_app_memory_async(wv, app_urls, Box::new(move |usage| {
+                    let _ = proxy_clone.send_event(UserEvent::MemoryPollResult(usage));
+                })) {
+                    memory_query_in_flight = false;
+                    tracing::warn!(?e, "memory poll failed to start");
+                }
+            }
+        }
+
+        // --- dashboard tick ---
+        if let Some(d) = &dashboard {
             if last_dashboard_push.elapsed() >= dashboard_push_interval {
                 last_dashboard_push = Instant::now();
-                
-                if !d.is_querying {
-                    d.is_querying = true;
-                    let app_urls = catalog.list_apps().unwrap_or_default().into_iter().map(|a| (a.id, a.start_url)).collect();
-                    let proxy_clone = proxy.clone();
-                    let _ = query_app_memory_async(&d.webview, app_urls, Box::new(move |usage| {
-                        let _ = proxy_clone.send_event(UserEvent::DashboardMemoryResult(usage));
-                    }));
-                }
-                
-                push_dashboard(d, &catalog, &app_windows);
+                push_dashboard(d, &catalog, &app_windows, &governor);
             }
         }
     });
@@ -500,7 +641,7 @@ fn spawn_dashboard_window(
 ) -> Result<DashboardWindow> {
     let window = WindowBuilder::new()
         .with_title("Reeve — Dashboard")
-        .with_inner_size(tao::dpi::LogicalSize::new(1000.0, 700.0))
+        .with_inner_size(tao::dpi::LogicalSize::new(1100.0, 750.0))
         .build(event_loop)?;
 
     let webview = WebViewBuilder::new_with_web_context(web_context)
@@ -518,13 +659,14 @@ fn spawn_dashboard_window(
         })
         .build(&window)?;
 
-    Ok(DashboardWindow { _window: window, webview, memory_cache: HashMap::new(), is_querying: false })
+    Ok(DashboardWindow { _window: window, webview, memory_cache: HashMap::new() })
 }
 
 fn push_dashboard(
     dash: &DashboardWindow,
     catalog: &Catalog,
     app_windows: &HashMap<WindowId, AppWindow>,
+    governor: &Governor,
 ) {
     let processes: Vec<ProcessSnapshot> = snapshot_processes(&dash.webview).unwrap_or_default();
     let apps = catalog.list_apps().unwrap_or_default();
@@ -532,25 +674,31 @@ fn push_dashboard(
 
     let dashboard_apps: Vec<DashboardApp> = apps.into_iter().map(|app| {
         let open = app_windows.values().find(|aw| aw.instance.app.id == app.id);
-        let (is_open, uptime_secs) = match open {
-            Some(aw) => (true, Some(now.duration_since(aw.started_at).as_secs())),
-            None => (false, None),
+        let (is_open, uptime_secs, peak_session_bytes) = match open {
+            Some(aw) => (
+                true,
+                Some(now.duration_since(aw.started_at).as_secs()),
+                if aw.peak_memory > 0 { Some(aw.peak_memory) } else { None },
+            ),
+            None => (false, None, None),
         };
-        let permissions = catalog.get_all_permissions(&app.id).unwrap_or_default().into_iter().map(|(capability, scope)| DashboardPermission { capability, scope }).collect();
-        
+        let permissions = catalog.get_all_permissions(&app.id).unwrap_or_default()
+            .into_iter().map(|(capability, scope)| DashboardPermission { capability, scope }).collect();
         DashboardApp {
             id: app.id.clone(),
             name: app.name,
             url: app.start_url,
             is_open,
             uptime_secs,
-            permissions,
             memory_bytes: dash.memory_cache.get(&app.id).copied(),
+            peak_session_bytes,
+            permissions,
         }
     }).collect();
 
     let total_memory_bytes: u64 = processes.iter().filter_map(|p| p.memory_bytes).sum();
     let process_count = processes.len() as u32;
+    let peak_job_memory = query_job_stats(governor).map(|s| s.peak_job_memory);
 
     let dashboard_processes: Vec<DashboardProcess> = processes.iter().map(|p| DashboardProcess {
         pid: p.pid,
@@ -566,6 +714,7 @@ fn push_dashboard(
 
     let data = DashboardData {
         total_memory_bytes,
+        peak_job_memory,
         process_count,
         apps: dashboard_apps,
         processes: dashboard_processes,

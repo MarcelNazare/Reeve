@@ -7,10 +7,11 @@ pub mod win {
     use windows::core::{Interface, PWSTR, BOOL};
     use windows::Win32::Foundation::{CloseHandle, HANDLE};
     use windows::Win32::System::JobObjects::{
-        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
-        SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-        JOB_OBJECT_LIMIT_JOB_MEMORY, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-        JOB_OBJECT_LIMIT_PROCESS_MEMORY,
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectBasicAccountingInformation,
+        JobObjectExtendedLimitInformation, QueryInformationJobObject,
+        SetInformationJobObject, JOBOBJECT_BASIC_ACCOUNTING_INFORMATION,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_JOB_MEMORY,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
     };
     use windows::Win32::System::ProcessStatus::{
         GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS,
@@ -20,6 +21,7 @@ pub mod win {
         PROCESS_TERMINATE,
     };
     use wry::{WebView, WebViewExtWindows};
+
     pub struct Governor {
         job: HANDLE,
     }
@@ -72,6 +74,44 @@ pub mod win {
                 assign_result?;
             }
             Ok(())
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, Serialize)]
+    pub struct JobStats {
+        pub peak_job_memory: u64,
+        pub active_processes: u32,
+    }
+
+    /// Queries the Job Object for peak committed memory and active process count.
+    /// `PeakJobMemoryUsed` lives in the ExtendedLimit struct, while `ActiveProcesses`
+    /// lives in the BasicAccounting struct, requiring two separate syscalls.
+    pub fn query_job_stats(governor: &Governor) -> Option<JobStats> {
+        unsafe {
+            let mut extended = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+            QueryInformationJobObject(
+                Some(governor.job),
+                JobObjectExtendedLimitInformation,
+                &mut extended as *mut _ as *mut core::ffi::c_void,
+                std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+                None,
+            )
+            .ok()?;
+
+            let mut accounting = JOBOBJECT_BASIC_ACCOUNTING_INFORMATION::default();
+            QueryInformationJobObject(
+                Some(governor.job),
+                JobObjectBasicAccountingInformation,
+                &mut accounting as *mut _ as *mut core::ffi::c_void,
+                std::mem::size_of::<JOBOBJECT_BASIC_ACCOUNTING_INFORMATION>() as u32,
+                None,
+            )
+            .ok()?;
+
+            Some(JobStats {
+                peak_job_memory: extended.PeakJobMemoryUsed as u64,
+                active_processes: accounting.ActiveProcesses,
+            })
         }
     }
 
@@ -232,8 +272,6 @@ pub mod win {
                         Err(_) => continue,
                     };
 
-                    // ICoreWebView2FrameInfoCollection uses an iterator,
-                    // not Count/GetValueAtIndex.
                     let iterator = match unsafe { frames.GetIterator() } {
                         Ok(it) => it,
                         Err(_) => continue,
@@ -275,7 +313,7 @@ pub mod win {
                                 app_id: app_id.clone(),
                                 memory_bytes: mem,
                             });
-                            break; // Done with this process
+                            break;
                         }
 
                         if unsafe { iterator.MoveNext(&mut has_current) }.is_err() {
@@ -362,6 +400,16 @@ pub mod win {
         pub fn attach(&self, _pid: u32) -> Result<()> {
             Ok(())
         }
+    }
+
+    #[derive(Debug, Clone, Copy, Serialize)]
+    pub struct JobStats {
+        pub peak_job_memory: u64,
+        pub active_processes: u32,
+    }
+
+    pub fn query_job_stats(_governor: &Governor) -> Option<JobStats> {
+        None
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Serialize)]

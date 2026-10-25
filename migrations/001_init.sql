@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS apps (
     name          TEXT NOT NULL,
     start_url     TEXT NOT NULL,
     manifest_json TEXT NOT NULL DEFAULT '{}',
+    icon_path     TEXT,                     -- NEW: local cached icon
     created_at    INTEGER NOT NULL
 );
 

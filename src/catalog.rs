@@ -9,6 +9,7 @@ pub struct AppRecord {
     pub id: String,
     pub name: String,
     pub start_url: String,
+    pub icon_path: Option<String>,
 }
 
 pub struct Catalog {
@@ -19,6 +20,7 @@ impl Catalog {
     pub fn open(path: &Path) -> Result<Self> {
         let conn = Connection::open(path)?;
         conn.execute_batch(include_str!("../migrations/001_init.sql"))?;
+        let _ = conn.execute("ALTER TABLE apps ADD COLUMN icon_path TEXT", []);
         Ok(Self { conn })
     }
 
@@ -32,15 +34,32 @@ impl Catalog {
         Ok(())
     }
 
+    pub fn set_icon_path(&self, app_id: &str, path: &Path) -> Result<()> {
+        self.conn.execute(
+            "UPDATE apps SET icon_path = ?1 WHERE id = ?2",
+            params![path.to_string_lossy(), app_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_app_name(&self, app_id: &str, name: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE apps SET name = ?1 WHERE id = ?2",
+            params![name, app_id],
+        )?;
+        Ok(())
+    }
+
     pub fn list_apps(&self) -> Result<Vec<AppRecord>> {
         let mut stmt = self
             .conn
-            .prepare("SELECT id, name, start_url FROM apps ORDER BY name")?;
+            .prepare("SELECT id, name, start_url, icon_path FROM apps ORDER BY name")?;
         let rows = stmt.query_map([], |r| {
             Ok(AppRecord {
                 id: r.get(0)?,
                 name: r.get(1)?,
                 start_url: r.get(2)?,
+                icon_path: r.get(3)?,
             })
         })?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
@@ -73,12 +92,7 @@ impl Catalog {
         Ok(())
     }
 
-    pub fn revoke_permission_scope(
-        &self,
-        app_id: &str,
-        capability: &str,
-        scope: &str,
-    ) -> Result<()> {
+    pub fn revoke_permission_scope(&self, app_id: &str, capability: &str, scope: &str) -> Result<()> {
         self.conn.execute(
             "DELETE FROM permissions WHERE app_id = ?1 AND capability = ?2 AND scope = ?3",
             params![app_id, capability, scope],
@@ -100,6 +114,16 @@ impl Catalog {
         self.conn.execute(
             "UPDATE sessions SET ended_at = ?1 WHERE id = ?2",
             params![now, session_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn update_session_peak(&self, session_id: i64, peak_bytes: u64) -> Result<()> {
+        self.conn.execute(
+            "UPDATE sessions
+             SET peak_mem_bytes = MAX(COALESCE(peak_mem_bytes, 0), ?1)
+             WHERE id = ?2",
+            params![peak_bytes as i64, session_id],
         )?;
         Ok(())
     }

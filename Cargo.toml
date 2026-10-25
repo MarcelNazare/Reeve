@@ -5,6 +5,10 @@ edition = "2021"
 description = "Native PWA launcher with a shared runtime and capability-gated bridge"
 license = "MIT"
 
+[[bin]]
+name = "benchmark"
+path = "src/bin/benchmark.rs"
+
 [dependencies]
 tao = "0.35"
 wry = "0.55"
@@ -19,6 +23,8 @@ rfd = "0.15"
 notify-rust = "4"
 url = "2"
 open = "5"
+reqwest = { version = "0.12", features = ["blocking"] }
+scraper = "0.21"
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"
@@ -26,6 +32,7 @@ windows = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_System_Com",
+    "Win32_System_Diagnostics_ToolHelp",
     "Win32_System_JobObjects",
     "Win32_System_ProcessStatus",
     "Win32_System_Threading",

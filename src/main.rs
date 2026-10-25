@@ -3,6 +3,7 @@ mod catalog;
 mod environment;
 mod governor;
 mod instance;
+mod manifest;
 mod ui;
 
 use anyhow::Result;
@@ -24,10 +25,6 @@ fn main() -> Result<()> {
     let catalog = catalog::Catalog::open(&data.join("catalog.db"))?;
     let env = environment::SharedEnvironment::new(data.join("webview"))?;
 
-    // Always re-seed. add_app is INSERT OR REPLACE keyed on id, so this is
-    // idempotent: missing apps are added, existing seeds have their
-    // name/start_url refreshed, and custom apps added via the search bar
-    // (different ids) are left untouched.
     seed_catalog(&catalog)?;
 
     let governor = governor::win::Governor::new(1_073_741_824, 4_294_967_296)?;
