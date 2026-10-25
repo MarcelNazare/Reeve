@@ -2,6 +2,7 @@
 
 **One engine. Many apps. Governed.**
 
+![Reeve Launcher](assets/reeve-product-snapshot.png)
 <p align="center">
   <img
     src="assets/reeve-product-snapshot.png"
@@ -135,19 +136,24 @@ If it returns nothing, install the [Evergreen WebView2 Runtime](https://develope
 
 ## Building & Running
 
+Reeve is a workspace with two binaries:
+1. `reeve` — the launcher application (default).
+2. `benchmark` — the memory measurement harness.
+
 ```bash
 git clone https://github.com/MarcelNazare/Reeve.git
 cd Reeve
 cargo check
-cargo run
+cargo run                      # launches the launcher
+cargo run --bin benchmark -- --help  # launches the benchmark harness
 ```
 
 Or with the bundled `Makefile`:
 
 ```bash
 make          # build
-make run      # build + run with debug logging
-make check    # fast type-check
+make run      # build + run launcher with debug logging
+make check    # fast type-check of both binaries
 make release  # optimized build (LTO, stripped)
 make clean    # remove target/
 ```
@@ -225,17 +231,92 @@ make bench-reeve
 - **Steady state:** 30s warm-up, then samples `WorkingSet64` every 5s for the configured duration.
 - **Isolation:** Only one scenario runs at a time. Kills only processes it spawned.
 
-### Latest Results (Reeve vs Chrome Tabs)
+### The Snapshot (Reeve vs Chrome Tabs)
 
-| Metric | Reeve | Chrome Tabs |
+<details>
+<summary>Click to view the raw benchmark output</summary>
+
+```markdown
+# Reeve benchmark
+
+Test apps: https://linear.app, https://notion.so, https://figma.com, https://app.slack.com/client, https://open.spotify.com
+
+Measured at 1792931954 (UNIX).
+
+## Cold start
+
+| Scenario | t_stable (proxy) | t_ready (exact) |
 |---|---|---|
-| **Cold start (t_stable)** | 41,100 ms | 9,200 ms |
-| **Cold start (t_ready)** | 12,460 ms | — |
-| **Peak memory** | 2575.5 MB | 2212.2 MB |
-| **Steady memory** | 2165.5 MB | 2195.3 MB |
-| **Peak processes** | 18 | 24 |
+| reeve | 41100 ms | 12460 ms |
+| chrome-tabs | 9200 ms | — |
 
-**What this tells us:**
+`t_stable` = time until total tree memory has been flat (<5 MB growth) for 1.5s while total > 50 MB. Uniform across all scenarios.
+`t_ready` = time until the first app's first page finished loading (from `on_page_load`). Only emitted by Reeve, so only measured there.
+
+## Steady state
+
+| Scenario | Peak memory | Steady memory | Peak processes |
+|---|---|---|---|
+| reeve | 2575.5 MB | 2165.5 MB | 18 |
+| chrome-tabs | 2212.2 MB | 2195.3 MB | 24 |
+
+## Per-scenario process breakdown (last sample)
+
+### reeve
+
+| PID | Name | Memory |
+|---|---|---|
+| 13080 | reeve.exe | 21.1 MB |
+| 15228 | msedgewebview2.exe | 163.5 MB |
+| 6952 | msedgewebview2.exe | 10.1 MB |
+| 640 | msedgewebview2.exe | 144.9 MB |
+| 10416 | msedgewebview2.exe | 52.8 MB |
+| 3804 | msedgewebview2.exe | 22.7 MB |
+| 13260 | msedgewebview2.exe | 60.2 MB |
+| 12280 | msedgewebview2.exe | 360.1 MB |
+| 14944 | msedgewebview2.exe | 188.7 MB |
+| 14516 | msedgewebview2.exe | 208.1 MB |
+| 6380 | msedgewebview2.exe | 219.5 MB |
+| 11392 | msedgewebview2.exe | 205.1 MB |
+| 2520 | msedgewebview2.exe | 225.3 MB |
+| 1488 | msedgewebview2.exe | 69.6 MB |
+| 5708 | msedgewebview2.exe | 47.3 MB |
+| 5132 | msedgewebview2.exe | 87.3 MB |
+| 4404 | msedgewebview2.exe | 42.2 MB |
+| 15012 | msedgewebview2.exe | 44.0 MB |
+
+### chrome-tabs
+
+| PID | Name | Memory |
+|---|---|---|
+| 8396 | chrome.exe | 212.1 MB |
+| 11208 | chrome.exe | 9.6 MB |
+| 5276 | chrome.exe | 83.7 MB |
+| 6196 | chrome.exe | 53.2 MB |
+| 6688 | chrome.exe | 20.5 MB |
+| 14340 | chrome.exe | 75.3 MB |
+| 14940 | chrome.exe | 204.8 MB |
+| 9556 | chrome.exe | 51.1 MB |
+| 12424 | chrome.exe | 151.0 MB |
+| 9916 | chrome.exe | 192.3 MB |
+| 6828 | chrome.exe | 231.4 MB |
+| 13672 | chrome.exe | 109.4 MB |
+| 12116 | chrome.exe | 123.2 MB |
+| 13216 | chrome.exe | 180.9 MB |
+| 8572 | chrome.exe | 87.7 MB |
+| 3836 | chrome.exe | 41.2 MB |
+| 9608 | chrome.exe | 39.4 MB |
+| 14900 | chrome.exe | 40.3 MB |
+| 14740 | chrome.exe | 95.7 MB |
+| 14332 | chrome.exe | 78.8 MB |
+| 8076 | chrome.exe | 65.6 MB |
+| 10248 | chrome.exe | 28.1 MB |
+| 12376 | chrome.exe | 18.4 MB |
+| 4816 | chrome.exe | 18.4 MB |
+```
+</details>
+
+### What this tells us
 
 1. **Steady-state memory is at parity.** Reeve (2165 MB) and Chrome (2195 MB) use essentially the same amount of RAM for these five heavy apps. The "80% less RAM" claim holds against Electron (which typically uses 2x-3x more), but **not** against Chrome tabs. We report this honestly.
 2. **Process count is lower.** Reeve achieves parity with 18 processes vs Chrome's 24, because WebView2 consolidates more of the browser tree.
@@ -310,12 +391,13 @@ reeve/
 ├── LICENSE                 # MIT
 ├── .gitignore
 ├── assets/
-│   └── reeve.ico           # multi-resolution Windows icon
+│   ├── reeve.ico           # multi-resolution Windows icon
+│   └── screenshot.png      # UI screenshot for README
 ├── migrations/
 │   └── 001_init.sql
 ├── benchmark-results/      # generated by the benchmark harness
 └── src/
-    ├── main.rs             # entry, seed_catalog(), launches the UI
+    ├── main.rs             # entry point for the launcher (default-run)
     ├── catalog.rs          # SQLite: apps, permissions, sessions
     ├── environment.rs      # shared WebView2 data directory
     ├── governor.rs         # Job Object, memory queries, process snapshots
@@ -324,7 +406,7 @@ reeve/
     ├── manifest.rs         # PWA manifest ingestion (fetch, parse, download icon)
     ├── ui.rs               # launcher, dashboard, IPC, popups, URL install
     └── bin/
-        └── benchmark.rs    # Electron vs Reeve vs Chrome tabs harness
+        └── benchmark.rs    # entry point for the benchmark harness
 ```
 
 ---
@@ -336,11 +418,11 @@ reeve/
 | `make` / `make all` | Alias for `make build` |
 | `make build` | `cargo build` (debug) |
 | `make release` | `cargo build --release` (LTO, stripped) |
-| `make run` | `cargo run` with `RUST_LOG=info,reeve=debug` |
-| `make check` | `cargo check` (fast type-check, no codegen) |
-| `make test` | `cargo test` |
+| `make run` | `cargo run` (launches the launcher, thanks to `default-run`) |
+| `make check` | `cargo check --all-targets` (verifies both binaries) |
+| `make test` | `cargo test --all-targets` |
 | `make fmt` | `cargo fmt` |
-| `make clippy` | `cargo clippy -- -D warnings` |
+| `make clippy` | `cargo clippy --all-targets -- -D warnings` |
 | `make bench` | Full benchmark suite (120s per scenario) |
 | `make bench-quick` | Quick benchmark (60s per scenario) |
 | `make bench-long` | Publication benchmark (600s per scenario) |
@@ -399,6 +481,7 @@ Not a formal security audit. Known limitations to address before production:
 
 | Symptom | Fix |
 |---|---|
+| `cargo run` could not determine which binary to run | Ensure `default-run = "reeve"` is in `Cargo.toml` under `[package]`, or use `cargo run --bin reeve` |
 | `couldn't read migrations/001_init.sql` | Confirm `migrations/001_init.sql` exists at the project root |
 | `couldn't read assets/reeve.ico` | Confirm `assets/reeve.ico` exists; `build.rs` requires it |
 | `ICoreWebView2Environment13` not found | Match `webview2-com` version to what `cargo tree -p wry` reports |
