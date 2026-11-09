@@ -140,7 +140,6 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
   .app .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; pointer-events: none; }
   .app .url { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; pointer-events: none; }
   
-  /* Context Menu 3-Dots */
   .menu-btn { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; opacity: 0; transition: opacity 0.2s, background 0.2s; display: flex; }
   .app:hover .menu-btn { opacity: 1; }
   .menu-btn:hover { background: var(--border); color: var(--text); }
@@ -210,7 +209,6 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
     return '<img class="icon" alt="" src="' + src + '" onerror="this.style.visibility=\'hidden\'">';
   }
 
-  // Right-click handler on the grid
   document.getElementById('grid').addEventListener('contextmenu', (e) => {
     const appEl = e.target.closest('.app');
     if (!appEl) return;
@@ -223,10 +221,9 @@ const LAUNCHER_HTML: &str = r##"<!DOCTYPE html>
     }));
   });
 
-  // Click handler for the 3 dots
   function showMenu(e, id) {
     e.preventDefault();
-    e.stopPropagation(); // Prevents the card's launch click from firing
+    e.stopPropagation();
     window.ipc.postMessage(JSON.stringify({
       cmd: 'show_context_menu',
       app_id: id,
@@ -526,6 +523,93 @@ fn sanitize_profile_name(app_id: &str) -> Result<String> {
 }
 
 #[cfg(windows)]
+#[repr(C)]
+struct MenuItemData {
+    text: Vec<u16>,
+    is_danger: bool,
+}
+
+#[cfg(windows)]
+unsafe extern "system" fn menu_subclass_proc(
+    hwnd: windows::Win32::Foundation::HWND,
+    umsg: u32,
+    wparam: windows::Win32::Foundation::WPARAM,
+    lparam: windows::Win32::Foundation::LPARAM,
+    _uidsubclass: usize,
+    _dwrefdata: usize,
+) -> windows::Win32::Foundation::LRESULT {
+    use windows::Win32::UI::WindowsAndMessaging::*;
+    use windows::Win32::Graphics::Gdi::*;
+    use windows::Win32::Foundation::*;
+    use windows::Win32::UI::Controls::{DRAWITEMSTRUCT, MEASUREITEMSTRUCT, ODS_SELECTED};
+    use windows::Win32::UI::Shell::DefSubclassProc;
+
+    match umsg {
+        WM_MEASUREITEM => {
+            let mis = &mut *(lparam.0 as *mut MEASUREITEMSTRUCT);
+            mis.itemHeight = 32;
+            mis.itemWidth = 200;
+            return LRESULT(1);
+        }
+        WM_DRAWITEM => {
+            let dis = &mut *(lparam.0 as *mut DRAWITEMSTRUCT);
+            let data_ptr = dis.itemData as *const MenuItemData;
+            if data_ptr.is_null() {
+                return LRESULT(0);
+            }
+            let data = &*data_ptr;
+
+            let bg_color = if (dis.itemState.0 & ODS_SELECTED.0) != 0 {
+                COLORREF(0x002a2a32)
+            } else {
+                COLORREF(0x00171712)
+            };
+            
+            let text_color = if data.is_danger {
+                COLORREF(0x003a45ff)
+            } else {
+                COLORREF(0x00ffffff)
+            };
+
+            let brush = CreateSolidBrush(bg_color);
+            FillRect(dis.hDC, &dis.rcItem, brush);
+            let _ = DeleteObject(brush.into());
+
+            let font = CreateFontW(
+                15, 0, 0, 0, FW_NORMAL.0 as i32, 0, 0, 0, DEFAULT_CHARSET, 
+                OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, 
+                (DEFAULT_PITCH.0 | FF_DONTCARE.0) as u32,
+                windows::core::w!("Segoe UI")
+            );
+
+            let old_font = SelectObject(dis.hDC, font.into());
+
+            SetBkMode(dis.hDC, TRANSPARENT);
+            SetTextColor(dis.hDC, text_color);
+
+            let mut rect = dis.rcItem;
+            rect.left += 16;
+
+            let mut text = data.text.clone();
+            DrawTextW(
+                dis.hDC,
+                &mut text,
+                &mut rect,
+                DT_SINGLELINE | DT_VCENTER | DT_LEFT,
+            );
+
+            SelectObject(dis.hDC, old_font);
+            let _ = DeleteObject(font.into());
+
+            return LRESULT(1);
+        }
+        _ => {}
+    }
+
+    DefSubclassProc(hwnd, umsg, wparam, lparam)
+}
+
+#[cfg(windows)]
 fn show_native_context_menu(
     app_id: String,
     x: i32,
@@ -534,26 +618,41 @@ fn show_native_context_menu(
     proxy: EventLoopProxy<UserEvent>,
 ) {
     use windows::Win32::UI::WindowsAndMessaging::*;
+    use windows::Win32::UI::Shell::{SetWindowSubclass, RemoveWindowSubclass};
 
     unsafe {
+        let hwnd = windows::Win32::Foundation::HWND(hwnd as *mut core::ffi::c_void);
+
+        let _ = SetWindowSubclass(hwnd, Some(menu_subclass_proc), 1, 0);
+
         let menu = match CreatePopupMenu() {
             Ok(m) => m,
             Err(_) => return,
         };
 
-        let _ = AppendMenuW(menu, MF_STRING, 1, windows::core::w!("Open"));
-        let _ = AppendMenuW(menu, MF_STRING, 2, windows::core::w!("Clear Data"));
+        let to_wide = |s: &str| -> Vec<u16> {
+            s.encode_utf16().chain(std::iter::once(0)).collect()
+        };
+
+        let open_data = Box::into_raw(Box::new(MenuItemData { text: to_wide("Open"), is_danger: false }));
+        let clear_data = Box::into_raw(Box::new(MenuItemData { text: to_wide("Clear Data"), is_danger: false }));
+        let uninstall_data = Box::into_raw(Box::new(MenuItemData { text: to_wide("Uninstall"), is_danger: true }));
+
+        let _ = AppendMenuW(menu, MF_OWNERDRAW, 1, windows::core::PCWSTR(open_data as *const u16));
+        let _ = AppendMenuW(menu, MF_OWNERDRAW, 2, windows::core::PCWSTR(clear_data as *const u16));
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, windows::core::PCWSTR::null());
-        let _ = AppendMenuW(menu, MF_STRING, 3, windows::core::w!("Uninstall"));
+        let _ = AppendMenuW(menu, MF_OWNERDRAW, 3, windows::core::PCWSTR(uninstall_data as *const u16));
 
         let flags: u32 = (TPM_RETURNCMD | TPM_NONOTIFY).0;
-        let hwnd = windows::Win32::Foundation::HWND(hwnd as *mut core::ffi::c_void);
-
-        // REMOVED std::thread::spawn here. TrackPopupMenuEx MUST run on the main thread
-        // to process clicks. It blocks the event loop for the brief duration the menu is open.
         let selected = TrackPopupMenuEx(menu, flags, x, y, hwnd, None);
 
         let _ = DestroyMenu(menu);
+
+        let _ = Box::from_raw(open_data);
+        let _ = Box::from_raw(clear_data);
+        let _ = Box::from_raw(uninstall_data);
+
+        let _ = RemoveWindowSubclass(hwnd, Some(menu_subclass_proc), 1);
 
         match selected.0 {
             1 => { let _ = proxy.send_event(UserEvent::Launch(app_id.clone())); }
@@ -562,16 +661,6 @@ fn show_native_context_menu(
             _ => {}
         }
     }
-}
-
-#[cfg(not(windows))]
-fn show_native_context_menu(
-    _app_id: String,
-    _x: i32,
-    _y: i32,
-    _hwnd: isize,
-    _proxy: EventLoopProxy<UserEvent>,
-) {
 }
 
 pub fn run_launcher(catalog: Catalog, env: SharedEnvironment, governor: Governor) -> Result<()> {
